@@ -27,7 +27,7 @@ warnings.filterwarnings("ignore")
 # from TSInterpret.InterpretabilityModels.counterfactual.NativeGuideCF import NativeGuideCF
 from TSInterpret.InterpretabilityModels.counterfactual.TSEvoCF import TSEvo
 from TSInterpret.InterpretabilityModels.counterfactual.COMTECF import COMTECF
-from CFs.NGCF import NGCF
+import CFs
 
 
 def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=False):
@@ -52,18 +52,27 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
     y_pred = np.load(f'{model_dataset_path}/test_preds.npy')
 
     if CF_method == 'NG':
-        exp_model = NGCF(model, (train_x, train_y), backend='PYT', mode='feat', method='NUN_CF', max_iter=10000)
+        exp_model: CFs.NGCF = CFs.NGCF(model, (train_x, train_y), backend='PYT', mode='feat', method='NUN_CF', max_iter=10000)
         # Now TSInterpret is swapped
     elif CF_method == 'NUN_CF':
-        exp_model = NGCF(model, (train_x, train_y), backend='PYT', mode='feat', method='NG', max_iter=10000)
+        exp_model: CFs.NGCF = CFs.NGCF(model, (train_x, train_y), backend='PYT', mode='feat', method='NG', max_iter=10000)
     elif CF_method == 'NG_DTW':
-        exp_model = NGCF(model, (train_x, train_y), backend='PYT', mode='feat', method='dtw_bary_center',
-                         max_iter=10000)
+        exp_model: CFs.NGCF = CFs.NGCF(model, (train_x, train_y), backend='PYT', mode='feat', method='dtw_bary_center',
+                                       max_iter=10000)
     elif CF_method == 'TSEvo':
-        exp_model = TSEvo(model=model.cpu(), data=(test_x, np.array(y_pred)), mode='feat', backend='PYT', epochs=500)
+        exp_model: TSEvo = TSEvo(model=model.cpu(), data=(test_x, np.array(y_pred)), mode='feat', backend='PYT', epochs=500)
         # TODO this is so weird, check if it is correct
     elif CF_method == 'COMTE':
-        exp_model = COMTECF(model, (train_x, train_y), backend='PYT', mode='feat', method='opt')
+        exp_model: COMTECF = COMTECF(model, (train_x, train_y), backend='PYT', mode='feat', method='opt')
+    elif CF_method == 'SETS':
+        # exp_model = CFs.SETSCF(model, (train_x, train_y), backend='PYT', mode='feat', method='opt')
+        shapelets_path = f'../shapelets/{dataset}/SETS.pkl'
+        if os.path.exists(shapelets_path):
+            with open(shapelets_path, 'rb') as file:
+                exp_model: CFs.SETSCF = pickle.load(file)
+            exp_model.set_models(model)
+        else:
+            raise 'mine shapelet for SETS first'
     else:
         raise 'Undefined CF method'
 
@@ -86,11 +95,24 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
     generation_times = []
 
     num_instance = test_x.shape[0]
+
+    # Fro TSEvo
+    np.random.seed(42)
+    random_selection = np.random.choice(num_instance, size=20, replace=False)
+
     for i in range(num_instance):
         orig = test_x[i].reshape(1, in_channels, -1)
         pred_label = y_pred[i]  # The pred_label is the True label for TSEvo
+        if isinstance(exp_model, TSEvo):
+            random_i = random_selection[i]
+            orig = test_x[random_i].reshape(1, in_channels, -1)
+            pred_label = y_pred[random_i]  # The pred_label is the True label for TSEvo
         start = time.time()
-        CF, pred_CF = exp_model.explain(orig, pred_label)
+
+        if isinstance(exp_model, COMTECF) or isinstance(exp_model, CFs.SETSCF):  # we keep the target as the second largest prediction
+            CF, pred_CF = exp_model.explain(orig)
+        else:
+            CF, pred_CF = exp_model.explain(orig, pred_label)  # Check again for NUNCF
         durations = time.time() - start
         generation_times.append(durations)
         if isinstance(exp_model, TSEvo):
@@ -101,6 +123,7 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
             exp_results.append(CF)
             L0.append(sparsity(orig, CF))
             L1_i, L2_i, Linf_i = proximity(orig, CF)
+
             IM1_i, _, _, _, AE_loss_i = plausibility(pred_CF, pred_label, AE_dict, CF, criterion)
             L1.append(L1_i)
             L2.append(L2_i)
@@ -110,10 +133,11 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
             IM1.append(IM1_i)
             AE_loss.append(AE_loss_i)
             if i <= 49 and vis_flag:
-                visualize_TSinterpret(exp_model, orig, pred_label, CF, pred_CF, CF_path, i)
+                marker = i if not isinstance(exp_model, TSEvo) else random_selection[i]
+                visualize_TSinterpret(exp_model, orig, pred_label, CF, pred_CF, CF_path, marker)
             num_valid = num_valid + 1
 
-        if isinstance(exp_model, TSEvo) and i == 19:
+        if isinstance(exp_model, TSEvo) and i == 19: # TSEvo only execute 20 random times
             break
     np.save(f'{CF_path}/CF.npy', np.array(exp_results))
     np.save(f'{CF_path}/valid.npy', np.array(list_valid))
@@ -131,7 +155,7 @@ def get_all_CF():
     # model_names = ['ResNet', 'FCN']
     model_names = ['FCN']
     # CF_methods = ['NG', 'NUN_CF', 'NG_DTW', 'TSEvo']
-    CF_methods = ['NG']
+    CF_methods = ['SETS']
     metric_list = ['L0', 'L0_std', 'L1', 'L1_std', 'L2', 'L2_std', 'Linf', 'Linf_std', 'maes', 'maes_std', 'IM1', 'IM1_std', 'AEloss', 'AEloss_std', 'gtime', 'gtime_std',
                    'valid']  # TODO put this thing in JSON
     df = pd.DataFrame(columns=['CF', 'model', 'dataset'] + metric_list)

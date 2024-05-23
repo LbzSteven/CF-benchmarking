@@ -4,7 +4,7 @@ import torch
 
 from models.ResNet import ResNetBaseline
 from models.FCN import FCN, FCN_AE
-
+from tsai.models.InceptionTime import InceptionTime
 
 def model_init(model_name, in_channels, n_pred_classes):
     # n_pred_classes = train_y.shape[1]
@@ -14,6 +14,9 @@ def model_init(model_name, in_channels, n_pred_classes):
         model = FCN(input_shape=in_channels, nb_classes=n_pred_classes)
     elif model_name == 'FCN_AE':
         model = FCN_AE(input_shape=in_channels, nb_classes=n_pred_classes)
+    elif model_name == 'InceptionTime':
+        model = InceptionTime(in_channels, n_pred_classes)
+
     else:
         raise 'Wrong model'
     return model

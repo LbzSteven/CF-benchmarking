@@ -1,27 +1,25 @@
-from datetime import date
-import pickle
-import pandas as pd
 import os
+import pickle
+import numpy as np
+import pandas as pd
 import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.metrics import confusion_matrix, accuracy_score, classification_report
-import numpy as np
+import argparse
+from tqdm import trange
+
 from tslearn.datasets import UCR_UEA_datasets
-
-from models.ResNet import ResNetBaseline
-from models.FCN import FCN
-from utils.model_util import model_init, AE_init
-
-from utils.train_util import fit, get_all_preds, generate_loader, fit_AE
-from utils.data_util import read_UCR_UEA
-
+from sklearn.metrics import confusion_matrix, accuracy_score, classification_report
+from utils.model_util import model_init
+from utils.train_util import fit, get_all_preds, generate_loader
+from utils.data_util import read_UCR_UEA, get_UCR_UEA_sets, get_result_JSON, save_result_JSON
+from datetime import date
 import warnings
 
 warnings.filterwarnings("ignore")
 
 
-def train_model_datasets(dataset: str, model_name: str, device=torch.device("cpu")):
+def train_model_datasets(dataset: str, model_name: str, device=torch.device("cpu"), UCR_UEA_dataloader=None):
     # data preprocessing
     model_dataset_path = f'../models/{model_name}/{dataset}'
     print(f'training {model_name} on {dataset}')
@@ -29,8 +27,9 @@ def train_model_datasets(dataset: str, model_name: str, device=torch.device("cpu
         print(f'{model_dataset_path} exist')
     else:
         os.makedirs(model_dataset_path)
-    train_x, test_x, train_y, test_y, enc1 = read_UCR_UEA(dataset=dataset)
-
+    train_x, test_x, train_y, test_y, enc1 = read_UCR_UEA(dataset=dataset, UCR_UEA_dataloader=UCR_UEA_dataloader)
+    if train_x is None:
+        return None
     pickle.dump(enc1, open(f'{model_dataset_path}/OneHotEncoder.pkl', 'wb'))
 
     train_loader, test_loader = generate_loader(train_x, test_x, train_y, test_y)
@@ -60,68 +59,66 @@ def train_model_datasets(dataset: str, model_name: str, device=torch.device("cpu
     return acc
 
 
-# TODO split data with multiple classes and train AEs based on those classes.
-def generate_AEs_given_data(dataset: str, model_name: str = 'FCN_AE', device=torch.device("cpu")):
-    model_dataset_path = f'../models/AE/{dataset}'
-    print(f'training AEs on {dataset}')
-    if os.path.exists(model_dataset_path):
-        print(f'{model_dataset_path} exist')
-    else:
-        os.makedirs(model_dataset_path)
-    train_x, test_x, train_y, test_y, enc1 = read_UCR_UEA(dataset=dataset)
-    _test_y = np.argmax(test_y, axis=1)
-    train_loader, test_loader = generate_loader(train_x, test_x, train_y, test_y)
-    AE = AE_init(model_name, in_channels=train_x.shape[-2], input_size=train_x.shape[-1])
+def train_UCR_UEA(model_name, dataset_choice, device: str = 'cuda:0', start_per: float = 0.0, end_per: float = 1.0):
+    datasets = get_UCR_UEA_sets(dataset_choice)
 
-    fit_AE(AE, train_loader, device)
-    torch.save(AE.state_dict(), f'{model_dataset_path}/AE')
-    _train_y = np.argmax(train_y, axis=1)
+    UCR_UEA_dataloader = UCR_UEA_datasets()
+    if device is None:
+        if torch.cuda.is_available():
+            device = torch.device("cuda")  # A CUDA device object
 
-    for c in np.unique(_test_y):
-        train_x_c = train_x[np.where(_train_y == c)]
-        train_y_c = train_y[np.where(_train_y == c)]
-
-        train_loader_c, _ = generate_loader(train_x_c, train_y_c, train_x_c, train_y_c)
-
-        AEc = AE_init(model_name, in_channels=train_x.shape[-2], input_size=train_x.shape[-1])
-        fit_AE(AEc, train_loader_c, device)
-        torch.save(AEc.state_dict(), f'{model_dataset_path}/AE_{c}')
-
-
-def train_UCR_UEC():
-    uni = UCR_UEA_datasets().list_univariate_datasets()
-    mul = UCR_UEA_datasets().list_multivariate_datasets()
-    all = UCR_UEA_datasets().list_datasets()  # todo check if all the dataset are without missing data and are same length
-    print(uni,mul,all)
-    if torch.cuda.is_available():
-        device = torch.device("cuda")  # A CUDA device object
-
-    else:
-        device = torch.device("cpu")  # A CPU device object
+        else:
+            device = torch.device("cpu")  # A CPU device object
     # datasets = ['GunPoint']
-    datasets = ['CBF', 'Coffee', 'ElectricDevices', 'ECG5000', 'GunPoint', 'FordA', 'Heartbeat', 'PenDigits',
-                'UWaveGestureLibrary', 'NATOPS']
-    model_names = ['ResNet', 'FCN']
+    # datasets = ['CBF', 'Coffee', 'ElectricDevices', 'ECG5000', 'GunPoint', 'FordA', 'Heartbeat', 'PenDigits',
+    #             'UWaveGestureLibrary', 'NATOPS']
+    if model_name == 'all':
+        models = ['ResNet', 'FCN', 'InceptionTime']
+    else:
+        models = [model_name]
 
     dataset_names = []
     m_names = []
     accs = []
-    for model_name in model_names:
-        for dataset in datasets:
-            acc = train_model_datasets(dataset, model_name, device)
-            accs.append(acc)
-            m_names.append(model_name)
-            dataset_names.append(dataset)
+    total_length = len(datasets)
+    start = int(start_per * total_length)
+    end = int(end_per * total_length)
+    print(f'total dataset length:{total_length}')
+    print(f'starting:{start},ending:{end}')
+    for model_name in models:
+        pbar = trange(end - start, desc='Dataset', unit='epoch', initial=0, disable=False)
+        # method_record = get_result_JSON(model_name)
+        # recorded_dataset = method_record.keys()
+        for i in range(start, end):
+            dataset = datasets[i]
+            pbar.set_postfix(loss=f'{dataset}')
+            method_record = get_result_JSON(model_name)
+
+            if method_record[dataset] == 'NotTrained':
+                acc = train_model_datasets(dataset, model_name, device, UCR_UEA_dataloader)
+                # acc = np.random.randint(1)
+                method_record = get_result_JSON(model_name)
+                method_record[dataset] = acc
+                save_result_JSON(method_name=model_name, record_dict=method_record)
+                if acc is not None:
+                    accs.append(acc)
+                    m_names.append(model_name)
+                    dataset_names.append(dataset)
+            else:
+                acc = method_record.get(dataset)
+                print(f'{model_name} on {dataset} was already trained with acc: {acc:.2f}')
+
+            pbar.update(1)
     df = pd.DataFrame({'dataset': dataset_names, 'model_name': m_names, 'acc': accs})
     df.to_csv(f'../Summary/classification/all_acc_{date.today()}.csv')
 
 
 if __name__ == '__main__':
-
-    # datasets = ['Coffee']
-    # datasets = ['CBF', 'Coffee', 'ElectricDevices', 'ECG5000', 'GunPoint', 'FordA', 'Heartbeat', 'PenDigits',
-    #             'UWaveGestureLibrary', 'NATOPS']
-    # for dataset in datasets:
-    #     generate_AEs_given_data(dataset=dataset, device=torch.device("cuda"))
-
-    train_UCR_UEC()
+    parser = argparse.ArgumentParser(description='Sepcify models and datasets')
+    parser.add_argument('--model_name', type=str, default='uni', help='model name')
+    parser.add_argument('--dataset_choice', type=str, default='FCN', help='dataset name')
+    parser.add_argument('--CUDA', type=str, default='cuda:0', help='CUDA')
+    parser.add_argument('--start_per', type=float, default=0.0, help='starting percentage of whole datasets')
+    parser.add_argument('--end_per', type=float, default=1.0, help='ending percentage of whole datasets')
+    args = parser.parse_args()
+    train_UCR_UEA(args.model_name, args.dataset_choice, args.CUDA, args.start_per, args.end_per)

@@ -9,6 +9,7 @@ from utils.visual_util import visualize_TSinterpret
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from tslearn.datasets import UCR_UEA_datasets
+import json
 import numpy as np
 import torch
 import torch.nn as nn
@@ -73,6 +74,8 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
             exp_model.set_models(model)
         else:
             raise 'mine shapelet for SETS first'
+    elif CF_method == 'wCF':
+        exp_model: CFs.wCF = CFs.wCF(model, train_x, backend='PYT', mode='feat', max_iter=500, lambda_init=10, pred_threshold=0.5)
     else:
         raise 'Undefined CF method'
 
@@ -109,10 +112,11 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
             pred_label = y_pred[random_i]  # The pred_label is the True label for TSEvo
         start = time.time()
 
-        if isinstance(exp_model, COMTECF) or isinstance(exp_model, CFs.SETSCF):  # we keep the target as the second largest prediction
+        if isinstance(exp_model, COMTECF) or isinstance(exp_model, CFs.SETSCF) or isinstance(exp_model, CFs.wCF):  # we keep the target as the second largest prediction
             CF, pred_CF = exp_model.explain(orig)
         else:
             CF, pred_CF = exp_model.explain(orig, pred_label)  # Check again for NUNCF
+
         durations = time.time() - start
         generation_times.append(durations)
         if isinstance(exp_model, TSEvo):
@@ -137,7 +141,7 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
                 visualize_TSinterpret(exp_model, orig, pred_label, CF, pred_CF, CF_path, marker)
             num_valid = num_valid + 1
 
-        if isinstance(exp_model, TSEvo) and i == 19: # TSEvo only execute 20 random times
+        if isinstance(exp_model, TSEvo) and i == 19:  # TSEvo only execute 20 random times
             break
     np.save(f'{CF_path}/CF.npy', np.array(exp_results))
     np.save(f'{CF_path}/valid.npy', np.array(list_valid))
@@ -155,7 +159,8 @@ def get_all_CF():
     # model_names = ['ResNet', 'FCN']
     model_names = ['FCN']
     # CF_methods = ['NG', 'NUN_CF', 'NG_DTW', 'TSEvo']
-    CF_methods = ['SETS']
+    # CF_methods = ['SETS']
+    CF_methods = ['wCF']
     metric_list = ['L0', 'L0_std', 'L1', 'L1_std', 'L2', 'L2_std', 'Linf', 'Linf_std', 'maes', 'maes_std', 'IM1', 'IM1_std', 'AEloss', 'AEloss_std', 'gtime', 'gtime_std',
                    'valid']  # TODO put this thing in JSON
     df = pd.DataFrame(columns=['CF', 'model', 'dataset'] + metric_list)
@@ -163,7 +168,7 @@ def get_all_CF():
     for CF_method in CF_methods:
         for model_name in model_names:
             for dataset in datasets:
-                row = [CF_method, model_name, dataset] + CF_generate(dataset, model_name, CF_method)
+                row = [CF_method, model_name, dataset] + CF_generate(dataset, model_name, CF_method, vis_flag=True)
                 df.loc[len(df.index)] = row
     numeric_columns = df.select_dtypes(include=['number']).columns
     df[numeric_columns] = df[numeric_columns].round(3)

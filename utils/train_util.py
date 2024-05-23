@@ -9,7 +9,7 @@ from torch.utils.data import Dataset
 
 def fit(model, train_loader, device, num_epochs: int = 1500,
         learning_rate: float = 0.001,
-        patience: int = 100, ) -> None:  # patience war 10
+        patience: int = 100, ) -> None:  # patience was 100
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     best_train_loss = np.inf
@@ -109,8 +109,8 @@ class Conv1dSamePadding(nn.Conv1d):
 
 
 # For Autoencoder:
-def fit_AE(model, train_loader, device, num_epochs: int = 200, learning_rate: float = 0.001,
-           patience: int = 10) -> None:  # patience was 10
+def fit_AE(model, train_loader, device, num_epochs: int = 1500, learning_rate: float = 0.001,
+           patience: int = 100) -> float:  # patience was 100
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     criterion = torch.nn.MSELoss()
@@ -143,8 +143,8 @@ def fit_AE(model, train_loader, device, num_epochs: int = 200, learning_rate: fl
                 if best_state_dict is not None:
                     model.load_state_dict(cast(Dict[str, torch.Tensor], best_state_dict))
                 print(f'Early stopping! at {epoch + 1}, using state at {epoch + 1 - patience}, best loss {best_train_loss:.2f}')
-                return None
-
+                return best_train_loss
+    return best_train_loss
 
 
 

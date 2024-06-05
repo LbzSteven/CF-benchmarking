@@ -16,7 +16,7 @@ class PyTorchModel(BaseModel):
         """
         super().__init__(model, change, model_path="", backend="PYT")
         self.device = device
-
+        self.model.eval()
     def predict(self, item) -> List:
         """Unified prediction function.
         Arguments:

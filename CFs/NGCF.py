@@ -143,6 +143,7 @@ class NGCF(CF):
         individual = np.array(nun.tolist())  # , dtype=np.float64)
         out = self.predict(individual)
         if np.argmax(out) == predicted_label:
+            print(out, predicted_label)
             print("No Counterfactual found. Most likely caused by a constant predictor.")
             return None, None
 

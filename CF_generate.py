@@ -44,7 +44,7 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
         os.makedirs(CF_path)
     train_x, test_x, train_y, test_y, enc1 = read_UCR_UEA(dataset=dataset, UCR_UEA_dataloader=UCR_UEA_datasets())
 
-    train_loader, test_loader = generate_loader(train_x, test_x, train_y, test_y)
+    _, train_loader_no_shuffle = generate_loader(train_x, train_x, train_y, train_y)
 
     in_channels = train_x.shape[-2]
     input_size = train_x.shape[-1]
@@ -53,19 +53,21 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
     state_dict = torch.load(f'{model_dataset_path}/weight.pt')
     model.load_state_dict(state_dict)
     model.eval()
-    y_pred = np.load(f'{model_dataset_path}/test_preds.npy')
+    test_pred = np.load(f'{model_dataset_path}/test_preds.npy')
+    train_pred, _ = get_all_preds(model, train_loader_no_shuffle, device=device)
+    train_pred = np.array(train_pred)
 
-    if CF_method == 'NG':  # TODO refractor so that we can put cuda: as device correctly
-        exp_model: CFs.NGCF = CFs.NGCF(model, (train_x, train_y), backend='PYT', mode='feat', method='NG', max_iter=input_size, device=device)
+    if CF_method == 'NG':
+        exp_model: CFs.NGCF = CFs.NGCF(model, (train_x, train_pred), backend='PYT', mode='feat', method='NG', max_iter=input_size, device=device) # Here we use train_pred otherwise may generate invalid prediction
     elif CF_method == 'NUN_CF':
-        exp_model: CFs.NGCF = CFs.NGCF(model, (train_x, train_y), backend='PYT', mode='feat', method='NUN_CF', max_iter=input_size, device=device)
+        exp_model: CFs.NGCF = CFs.NGCF(model, (train_x, train_pred), backend='PYT', mode='feat', method='NUN_CF', max_iter=input_size, device=device)
     elif CF_method == 'NG_DTW':
-        exp_model: CFs.NGCF = CFs.NGCF(model, (train_x, train_y), backend='PYT', mode='feat', method='dtw_bary_center',
+        exp_model: CFs.NGCF = CFs.NGCF(model, (train_x, train_pred), backend='PYT', mode='feat', method='dtw_bary_center',
                                        max_iter=10000, device=device)
     elif CF_method == 'TSEvo':
-        exp_model: CFs.TSEvo = CFs.TSEvo(model=model, data=(test_x, np.array(y_pred)), mode='feat', backend='PYT', epochs=500, device=device)
+        exp_model: CFs.TSEvo = CFs.TSEvo(model=model, data=(test_x, np.array(test_pred)), mode='feat', backend='PYT', epochs=500, device=device)
     elif CF_method == 'COMTE':
-        exp_model: CFs.COMTECF = CFs.COMTECF(model, (train_x, train_y), backend='PYT', mode='feat', method='opt', device=device)
+        exp_model: CFs.COMTECF = CFs.COMTECF(model, (train_x, train_pred), backend='PYT', mode='feat', method='opt', device=device)
     elif CF_method == 'SETS':
         # exp_model = CFs.SETSCF(model, (train_x, train_y), backend='PYT', mode='feat', method='opt')
         shapelets_path = f'../shapelets/{dataset}/SETS.pkl'
@@ -107,11 +109,11 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
     pbar = trange(num_instance, desc='Dataset', unit='epoch', initial=0, disable=False)
     for i in range(num_instance):
         orig = test_x[i].reshape(1, in_channels, -1)
-        pred_label = y_pred[i]  # The pred_label is the True label for TSEvo
+        pred_label = test_pred[i]  # The pred_label is the True label for TSEvo
         if isinstance(exp_model, CFs.TSEvo):
             random_i = random_selection[i]
             orig = test_x[random_i].reshape(1, in_channels, -1)
-            pred_label = int(y_pred[random_i])  # The pred_label is the True label for TSEvo
+            pred_label = int(test_pred[random_i])  # The pred_label is the True label for TSEvo
 
         start = time.time()
 
@@ -153,7 +155,7 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
     np.save(f'{CF_path}/valid.npy', np.array(list_valid))
     np.save(f'{CF_path}/pred_CFs.npy', np.array(pred_CFs))
     np.save(f'{CF_path}/test_x.npy', test_x)
-    np.save(f'{CF_path}/y_pred.npy', y_pred)
+    np.save(f'{CF_path}/test_pred.npy', test_pred)
     np.save(f'{CF_path}/test_y.npy', np.argmax(test_y, axis=1))  # Change from onehot to a class number notice this is different from the original class name
     np.save(f'{CF_path}/generation_times.npy', np.array(generation_times))
     return generate_metric_stat(L0, L1, L2, Linf, maes, generation_times, num_instance, num_valid)
@@ -240,8 +242,8 @@ if __name__ == '__main__':
     #     model_name = 'MLP'
     #     dataset = 'BasicMotions'
     #     CF_generate(dataset, model_name, CF_method=CF_method, AE_name='FCN_AE', vis_flag=True)
-    # for CF_method in ['NUN_CF', 'TSEvo', 'wCF']:
-        # # for CF_method in ['NG']:
-        # model_name = 'FCN'
-        # dataset = 'GunPoint'
-        # CF_generate(dataset, model_name, CF_method=CF_method, AE_name='FCN_AE', vis_flag=True)
+    # for CF_method in ['NUN_CF']:
+    #     # for CF_method in ['NG']:
+    #     model_name = 'MLP'
+    #     dataset = 'Computers'
+    #     CF_generate(dataset, model_name, CF_method=CF_method, AE_name='FCN_AE', vis_flag=True)

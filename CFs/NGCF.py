@@ -4,17 +4,21 @@ from typing import Tuple
 from collections import OrderedDict
 from typing import Dict, Callable
 
-
 import torch
 
 import numpy as np
+from tsai.models.InceptionTime import InceptionTime
+from tsai.models.MLP import MLP
+from tsai.models.FCN import FCN
+from tsai.models.ResNet import ResNet
 from torchcam.methods import CAM
 from tslearn.barycenters import dtw_barycenter_averaging
 from tslearn.neighbors import KNeighborsTimeSeries
 
 from TSInterpret.InterpretabilityModels.counterfactual.CF import CF
 from TSInterpret.InterpretabilityModels.GradCam.GradCam_1D import GradCam1D
-from TSInterpret.Models.PyTorchModel import PyTorchModel
+# from TSInterpret.Models.PyTorchModel import PyTorchModel
+from .PyTorchModel import PyTorchModel
 from TSInterpret.Models.TensorflowModel import TensorFlowModel
 
 warnings.filterwarnings("ignore")
@@ -23,24 +27,24 @@ warnings.simplefilter("ignore")
 
 class NGCF(CF):
 
-
     def __init__(
-        self,
-        model,
-        data,
-        backend="PYT",
-        mode="feat",
-        method="NUN_CF",
-        distance_measure="dtw",
-        n_neighbors=1,
-        max_iter=500,
+            self,
+            model,
+            data,
+            backend="PYT",
+            mode="feat",
+            method="NUN_CF",
+            distance_measure="dtw",
+            n_neighbors=1,
+            max_iter=500,
+            device='cuda:0'
     ) -> None:
 
         super().__init__(model, mode)
 
         self.backend = backend
-        test_x, test_y = data
-        test_x = np.array(test_x)  # , dtype=np.float32)
+        test_x, y_pred = data
+        test_x = np.array(test_x)  # , dtype=np.float32) # Ziwen: this should be call as train_x
         shape = (test_x.shape[-2], test_x.shape[-1])
         if mode == "time":
             # Parse test data into (1, feat, time):
@@ -48,24 +52,28 @@ class NGCF(CF):
             test_x = test_x.reshape(test_x.shape[0], test_x.shape[2], test_x.shape[1])
         elif mode == "feat":
             self.ts_length = test_x.shape[-1]
-
+        self.num_feature = test_x.shape[-2]
+        self.model.to(device)
         if backend == "PYT":
             self.remove_all_hooks(self.model)
             # try:
-            self.cam_extractor = CAM(self.model, input_shape=shape)
+            if isinstance(model, MLP):
+                self.cam_extractor = None
+            else:
+                self.cam_extractor = CAM(self.model, input_shape=shape)
             # except:
             #    print("GradCam Hook already registered")
             change = False
             if self.mode == "time":
                 change = True
-            self.predict = PyTorchModel(self.model, change).predict
-            y_pred = np.argmax(self.predict(test_x), axis=1)
+            self.predict = PyTorchModel(self.model, change, device).predict
+            # y_pred = np.argmax(self.predict(test_x), axis=1)
 
         elif backend == "TF":
             self.cam_extractor = GradCam1D()  # VanillaGradients()#GradCam1D()
-            y_pred = np.argmax(
-                self.model.predict(test_x.reshape(-1, self.ts_length, 1)), axis=1
-            )
+            # y_pred = np.argmax(
+            #     self.model.predict(test_x.reshape(-1, self.ts_length, 1)), axis=1
+            # )
             self.predict = TensorFlowModel(self.model, change=True).predict
         else:
             print("Only Compatible with Tensorflow (TF) or Pytorch (PYT)!")
@@ -96,7 +104,7 @@ class NGCF(CF):
                     child._backward_hooks: Dict[int, Callable] = OrderedDict()
                 self.remove_all_hooks(child)
 
-    def _native_guide_retrieval(self, query, predicted_label, distance, n_neighbors):
+    def _nearest_unlike_retrieval(self, query, predicted_label, distance, n_neighbors):
         """
         This gets the nearest unlike neighbors.
         Arguments:
@@ -119,14 +127,15 @@ class NGCF(CF):
         if len(y.shape) == 2:
             y = np.argmax(y, axis=1)
         ts_length = self.ts_length
+        num_feature = self.num_feature
         knn = KNeighborsTimeSeries(n_neighbors=n_neighbors, metric=distance)
-        knn.fit(x_train[list(np.where(y != predicted_label))].reshape(-1, ts_length, 1))
-        dist, ind = knn.kneighbors(query.reshape(1, ts_length, 1), return_distance=True)
+        knn.fit(x_train[list(np.where(y != predicted_label))].reshape(-1, ts_length, num_feature))
+        dist, ind = knn.kneighbors(query.reshape(1, ts_length, num_feature), return_distance=True)
         x_train.reshape(-1, 1, ts_length)
         return dist[0], x_train[np.where(y != predicted_label)][ind[0]]
 
-    def _native_guide_wrapper(self, query, predicted_label, distance, n_neighbors):
-        _, nun = self._native_guide_retrieval(
+    def _nearest_unlike_neighbor(self, query, predicted_label, distance, n_neighbors):
+        _, nun = self._nearest_unlike_retrieval(
             query, predicted_label, distance, n_neighbors
         )
         if nun is None:
@@ -134,13 +143,13 @@ class NGCF(CF):
         individual = np.array(nun.tolist())  # , dtype=np.float64)
         out = self.predict(individual)
         if np.argmax(out) == predicted_label:
-            print("No Counterfactual found. Most likly caused by a constant predictor.")
+            print("No Counterfactual found. Most likely caused by a constant predictor.")
             return None, None
 
         return nun, np.argmax(out)
 
     def _findSubarray(
-        self, a, k
+            self, a, k
     ):  # used to find the maximum contigious subarray of length k in the explanation weight vector
         if len(a.shape) == 2:
             a = a.reshape(-1)
@@ -165,10 +174,13 @@ class NGCF(CF):
 
         return np.argmax(sum_arr), vec[np.argmax(sum_arr)]
 
+    # def _counterfactual_generator_swap(
+    #     self, instance, label, subarray_length=1, max_iter=500
+    # ):
     def _counterfactual_generator_swap(
-        self, instance, label, subarray_length=1, max_iter=500
+            self, instance, label, subarray_length=1, max_iter=500
     ):
-        _, nun = self._native_guide_retrieval(instance, label, self.distance_measure, 1)
+        _, nun = self._nearest_unlike_retrieval(instance, label, self.distance_measure, 1)
         if np.count_nonzero(nun.reshape(-1) - instance.reshape(-1)) == 0:
             print("Starting and nun are Identical !")
 
@@ -179,7 +191,7 @@ class NGCF(CF):
         if self.backend == "PYT":
             training_weights = (
                 self.cam_extractor(out.squeeze(0).argmax().item(), out)[0]
-                .detach()
+                .detach().cpu()
                 .numpy()
             )
         elif self.backend == "TF":
@@ -201,9 +213,9 @@ class NGCF(CF):
         X_example = instance.copy().reshape(1, -1)
 
         nun = nun.reshape(1, -1)
-        X_example[0, starting_point : subarray_length + starting_point] = nun[
-            0, starting_point : subarray_length + starting_point
-        ]
+        X_example[0, starting_point: subarray_length + starting_point] = nun[
+                                                                         0, starting_point: subarray_length + starting_point
+                                                                         ]
         individual = np.array(
             X_example.reshape(-1, 1, train_x.shape[-1]).tolist()
         )  # , dtype=np.float64
@@ -212,6 +224,7 @@ class NGCF(CF):
         prob_target = out[0][
             label
         ]  # torch.nn.functional.softmax(model(torch.from_numpy(test_x))).detach().numpy()[0][y_pred[instance]]
+
         counter = 0
         while prob_target > 0.5 and counter < max_iter:
             subarray_length += 1
@@ -222,9 +235,9 @@ class NGCF(CF):
             #     0
             # ]
             X_example = instance.copy().reshape(1, -1)
-            X_example[:, starting_point : subarray_length + starting_point] = nun[
-                :, starting_point : subarray_length + starting_point
-            ]
+            X_example[:, starting_point: subarray_length + starting_point] = nun[
+                                                                             :, starting_point: subarray_length + starting_point
+                                                                             ]
             individual = np.array(
                 X_example.reshape(-1, 1, train_x.shape[-1]).tolist()
             )  # , dtype=np.float64
@@ -240,7 +253,7 @@ class NGCF(CF):
         return X_example, np.argmax(out, axis=1)[0]
 
     def _instance_based_cf(self, query, label, target, distance="dtw", max_iter=500):
-        d, nan = self._native_guide_retrieval(query, label, distance, 1)
+        d, nan = self._nearest_unlike_retrieval(query, label, distance, 1)
         beta = 0
         insample_cf = nan.reshape(1, 1, -1)
 
@@ -287,13 +300,14 @@ class NGCF(CF):
         """
         if self.mode == "time":
             x = x.reshape(x.shape[0], x.shape[2], x.shape[1])
-        if self.method == "NG":
-            return self._native_guide_wrapper(
+        if self.method == "NUN_CF":
+            return self._nearest_unlike_neighbor(
                 x, y, self.distance_measure, self.n_neighbors
             )
         elif self.method == "dtw_bary_center":
             return self._instance_based_cf(x, y, self.distance_measure)
-        elif self.method == "NUN_CF":
+        elif self.method == "NG":
+
             self.distance_measure = "euclidean"
             return self._counterfactual_generator_swap(x, y, max_iter=self.max_iter)
         else:

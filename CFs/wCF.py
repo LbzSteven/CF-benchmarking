@@ -1,7 +1,8 @@
 from typing import Tuple
 import numpy as np
 from TSInterpret.InterpretabilityModels.counterfactual.CF import CF
-from TSInterpret.Models.PyTorchModel import PyTorchModel
+# from TSInterpret.Models.PyTorchModel import PyTorchModel
+from .PyTorchModel import PyTorchModel
 from TSInterpret.Models.SklearnModel import SklearnModel
 from TSInterpret.Models.TensorflowModel import TensorFlowModel
 from scipy.stats import stats
@@ -35,6 +36,7 @@ class wCF(CF):
             max_iter=500,
             lambda_init=10,
             pred_threshold=0.5,
+            device='cuda:0'
     ) -> None:
         super().__init__(model, mode)
         shape = X_train.shape
@@ -47,9 +49,11 @@ class wCF(CF):
             change = False
         self.ts_length = shape[-1]
         self.num_feature = shape[-2]
+        self.device = device
+        self.model.to(device)
         self.mad = stats.median_abs_deviation(X_train)
         if backend == "PYT":
-            self.predict = PyTorchModel(model, change).predict
+            self.predict = PyTorchModel(model, change, device).predict
         elif backend == "TF":
             self.predict = TensorFlowModel(model, change).predict
         elif backend == "SK":

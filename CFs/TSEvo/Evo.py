@@ -14,7 +14,7 @@ from TSInterpret.InterpretabilityModels.counterfactual.TSEvo.EvoUtils import (
     pareto_eq,
     recombine,
 )
-from TSInterpret.InterpretabilityModels.counterfactual.TSEvo.Problem import (
+from CFs.TSEvo.Problem import (
     MultiObjectiveCounterfactuals,
 )
 
@@ -39,6 +39,7 @@ class EvolutionaryOptimization:
         epochs=500,
         verbose=0,
         mode="feat",
+        device="cuda:0"
     ):
         """
         Initialization of Optimization Algorithm
@@ -81,6 +82,7 @@ class EvolutionaryOptimization:
             backend,
             channels,
             mode=mode,
+            device=device,
         )
         # print('Finished Create MOP')
         """Create types"""

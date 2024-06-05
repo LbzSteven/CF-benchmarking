@@ -1,7 +1,7 @@
 import numpy as np
 
 from TSInterpret.InterpretabilityModels.counterfactual.CF import CF
-from TSInterpret.InterpretabilityModels.counterfactual.TSEvo.Evo import (
+from CFs.TSEvo.Evo import (
     EvolutionaryOptimization,
 )
 
@@ -27,6 +27,7 @@ class TSEvo(CF):
         mode="time",
         backend="PYT",
         verbose=0,
+        device="cuda:0"
     ):
         """
         Arguments:
@@ -43,6 +44,7 @@ class TSEvo(CF):
         self.verbose = verbose
         self.transformer = transformer
         self.epochs = epochs
+        self.device = device
         if type(data) == tuple:
             self.x, self.y = data
             # print('Len Reference Set ', len(self.x.shape))
@@ -117,6 +119,7 @@ class TSEvo(CF):
             verbose=self.verbose,
             epochs=epochs,
             mode=self.mode,
+            device=self.device
         )
         ep, output = e.run()
         return np.array(ep)[0], output

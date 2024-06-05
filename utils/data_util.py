@@ -40,6 +40,12 @@ def get_UCR_UEA_sets(dataset_choice: str) -> list:
 
     all_equal_length: list = univariate_equal_length + multivariate_equal_length
     all_equal_length = [item for item in all_equal_length if item not in failed_loading]
+
+    selected_uni = UCR_UEA['selected_uni']
+    selected_uni = [item for item in selected_uni if item in all_equal_length]
+    selected_mul = UCR_UEA['selected_mul']
+    selected_mul = [item for item in selected_mul if item in all_equal_length]
+    selected_all = selected_uni + selected_mul
     if dataset_choice == 'uni':
         univariate_equal_length = [item for item in univariate_equal_length if item not in failed_loading]
         datasets = univariate_equal_length
@@ -48,12 +54,22 @@ def get_UCR_UEA_sets(dataset_choice: str) -> list:
         datasets = multivariate_equal_length
     elif dataset_choice == 'all':
         datasets = all_equal_length
+    elif dataset_choice == 'selected_uni':
+        datasets = selected_uni
+    elif dataset_choice == 'selected_mul':
+        datasets = selected_mul
+    elif dataset_choice == 'selected_all':
+        datasets = selected_all
     else:
         raise 'wrong set of datasets'
 
     return datasets
 
-
+def get_reference_UCR():
+    full_path = f'./JSON/reference_UCR.json'
+    with open(full_path, 'r') as file:
+        record_dict = json.load(file)
+    return record_dict
 def get_result_JSON(method_name) -> dict:
     full_path = f'./JSON/{method_name}.json'
     if not os.path.exists(full_path):

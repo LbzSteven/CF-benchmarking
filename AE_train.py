@@ -11,14 +11,14 @@ from utils.model_util import AE_init
 from utils.train_util import generate_loader, fit_AE
 
 
-def generate_AEs_given_data(dataset: str, model_name: str = 'FCN_AE', device=torch.device("cpu")):
-    model_dataset_path = f'../models/AE/{dataset}'
+def generate_AEs_given_data(dataset: str, model_name: str = 'FCN_AE', device=torch.device("cpu"), UCR_UEA_dataloader=None):
+    model_dataset_path = f'../models/AE/{model_name}/{dataset}'
     print(f'training AEs on {dataset}')
     if os.path.exists(model_dataset_path):
         print(f'{model_dataset_path} exist')
     else:
         os.makedirs(model_dataset_path)
-    train_x, test_x, train_y, test_y, enc1 = read_UCR_UEA(dataset=dataset)
+    train_x, test_x, train_y, test_y, enc1 = read_UCR_UEA(dataset=dataset, UCR_UEA_dataloader=UCR_UEA_dataloader)
     _test_y = np.argmax(test_y, axis=1)
     train_loader, test_loader = generate_loader(train_x, test_x, train_y, test_y)
     AE = AE_init(model_name, in_channels=train_x.shape[-2], input_size=train_x.shape[-1])
@@ -37,20 +37,12 @@ def generate_AEs_given_data(dataset: str, model_name: str = 'FCN_AE', device=tor
         _ = fit_AE(AEc, train_loader_c, device)
         torch.save(AEc.state_dict(), f'{model_dataset_path}/AE_{c}')
     return best_train_loss
+
+
 def train_AEs(model_name, dataset_choice, device: str = 'cuda:0', start_per: float = 0.0, end_per: float = 1.0):
     datasets = get_UCR_UEA_sets(dataset_choice)
 
     UCR_UEA_dataloader = UCR_UEA_datasets()
-    if device is None:
-        if torch.cuda.is_available():
-            device = torch.device("cuda")  # A CUDA device object
-
-        else:
-            device = torch.device("cpu")  # A CPU device object
-    # datasets = ['GunPoint']
-    # datasets = ['CBF', 'Coffee', 'ElectricDevices', 'ECG5000', 'GunPoint', 'FordA', 'Heartbeat', 'PenDigits',
-    #             'UWaveGestureLibrary', 'NATOPS']
-    # model_name = 'AE'
 
     total_length = len(datasets)
     start = int(start_per * total_length)
@@ -73,13 +65,14 @@ def train_AEs(model_name, dataset_choice, device: str = 'cuda:0', start_per: flo
 
         else:
             acc = method_record.get(dataset)
-            print(f'{model_name} on {dataset} was already trained with acc: {acc:.2f}')
+            print(f'{model_name} on {dataset} was already trained with loss: {acc:.4f}')
 
         pbar.update(1)
 
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Sepcify models and datasets')
-    parser.add_argument('--model_name', type=str, default='AE', help='model name')
+    parser = argparse.ArgumentParser(description='Specify models and datasets')
+    parser.add_argument('--model_name', type=str, default='FCN_AE', help='model name')
     parser.add_argument('--dataset_choice', type=str, default='all', help='dataset name')
     parser.add_argument('--CUDA', type=str, default='cuda:0', help='CUDA')
     parser.add_argument('--start_per', type=float, default=0.0, help='starting percentage of whole datasets')

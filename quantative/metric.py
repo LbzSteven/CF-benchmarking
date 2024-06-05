@@ -24,17 +24,26 @@ def sparsity(orig, exp):
     return num_diff_elements
 
 
-def generate_metric_stat(L0, L1, L2, Linf, maes, IM1, AE_loss, generation_times, num_instance, num_valid):
+# def generate_metric_stat(L0, L1, L2, Linf, maes, IM1, AE_loss, generation_times, num_instance, num_valid):
+#     return [np.mean(L0), np.std(L0),
+#             np.mean(L1), np.std(L1),
+#             np.mean(L2), np.std(L2),
+#             np.mean(Linf), np.std(Linf),
+#             np.mean(maes), np.std(maes),
+#             np.mean(IM1), np.std(IM1),
+#             np.mean(AE_loss), np.std(AE_loss),
+#             np.mean(generation_times), np.std(generation_times),
+#             num_valid / num_instance]
+def generate_metric_stat(L0, L1, L2, Linf, maes, generation_times, num_instance, num_valid):
     return [np.mean(L0), np.std(L0),
             np.mean(L1), np.std(L1),
             np.mean(L2), np.std(L2),
             np.mean(Linf), np.std(Linf),
             np.mean(maes), np.std(maes),
-            np.mean(IM1), np.std(IM1),
-            np.mean(AE_loss), np.std(AE_loss),
+            # np.mean(IM1), np.std(IM1),
+            # np.mean(AE_loss), np.std(AE_loss),
             np.mean(generation_times), np.std(generation_times),
             num_valid / num_instance]
-
 
 # def plausibility(AEcf, AEorig, AE, cf, criterion):
 #     epsilon = 1e-6

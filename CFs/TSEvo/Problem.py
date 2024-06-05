@@ -21,6 +21,7 @@ class MultiObjectiveCounterfactuals(Problem):
         backend="torch",
         channels=1,
         mode="feat",
+        device='cuda:0',
     ):
         super().__init__(n_var=channels, n_obj=3, n_constr=0, evaluation_of="auto")
 
@@ -30,6 +31,7 @@ class MultiObjectiveCounterfactuals(Problem):
         self.observation = observation
         self.target = target
         self.original_y = original_y
+        self.device = device
         if type(original_y) is int:
             self.original_label = original_y
         elif len(original_y) > 1:
@@ -103,6 +105,7 @@ class MultiObjectiveCounterfactuals(Problem):
         individual,
         full=False,
     ):
+        device = self.device
         if self.mode == "time":
             individual = np.swapaxes(individual, -1, -2).reshape(
                 1, individual.shape[-1], individual.shape[-2]
@@ -112,10 +115,10 @@ class MultiObjectiveCounterfactuals(Problem):
                 1, individual.shape[-2], individual.shape[-1]
             )
         individual = np.array(individual.tolist(), dtype=np.float64)
-        input_ = torch.from_numpy(individual).float()  # .reshape(1, -1, self.window)
-
+        input_ = torch.from_numpy(individual).float().to(device)  # .reshape(1, -1, self.window)
+        self.model.eval().to(device)
         with torch.no_grad():
-            output = torch.nn.functional.softmax(self.model(input_)).detach().numpy()
+            output = torch.nn.functional.softmax(self.model(input_)).detach().cpu().numpy()
 
         idx = output.argmax()
 
@@ -135,6 +138,7 @@ class MultiObjectiveCounterfactuals(Problem):
         return idx, output[0][idx]
 
     def get_prediction_target_torch(self, individual, full=False, binary=False):
+        device = self.device
         individual = np.array(individual.tolist(), dtype=np.float64)
         if self.mode == "time":
             individual = np.swapaxes(individual, -1, -2).reshape(
@@ -144,8 +148,9 @@ class MultiObjectiveCounterfactuals(Problem):
             individual = individual.reshape(
                 1, individual.shape[-2], individual.shape[-1]
             )
-        input_ = torch.from_numpy(individual).float()  # .reshape(1, -1, self.window)
-        output = torch.nn.functional.softmax(self.model(input_)).detach().numpy()
+        self.model.eval().to(device)
+        input_ = torch.from_numpy(individual).float().to(device)  # .reshape(1, -1, self.window)
+        output = torch.nn.functional.softmax(self.model(input_)).detach().cpu().numpy()
         idx = output.argmax()
         if full:
             return idx, output[0]

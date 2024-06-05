@@ -18,7 +18,8 @@ from TSInterpret.InterpretabilityModels.counterfactual.SETS.utils import (
     get_shapelets,
     get_shapelets_distances,
 )
-from TSInterpret.Models.PyTorchModel import PyTorchModel
+# from TSInterpret.Models.PyTorchModel import PyTorchModel
+from .PyTorchModel import PyTorchModel
 from TSInterpret.Models.SklearnModel import SklearnModel
 from TSInterpret.Models.TensorflowModel import TensorFlowModel
 
@@ -52,6 +53,7 @@ class SETSCF(CF):
             remove_self_similar=True,
             silent=False,
             fit_shapelets=True,
+            device='cuda:0',
     ) -> None:
         """
         Arguments:

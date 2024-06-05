@@ -74,7 +74,7 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
         if os.path.exists(shapelets_path):
             with open(shapelets_path, 'rb') as file:
                 exp_model: CFs.SETSCF = pickle.load(file)
-            exp_model.set_models(model)
+            exp_model.set_models(model, device=device)
         else:
             raise 'mine shapelets for SETS first'
     elif CF_method == 'wCF':

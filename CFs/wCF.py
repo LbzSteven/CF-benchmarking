@@ -78,7 +78,7 @@ class wCF(CF):
         i = 0
         while prob_target < self.pred_threshold:
             Lambda = self.lambda_init * (1 + 0.5) ** i
-            print(f'{i} round, prob:{prob_target},lamda:{Lambda}')
+            # print(f'{i} round, prob:{prob_target},lamda:{Lambda}')
             res = minimize(loss_function_mad, self.cf.flatten(), args=(self.predict, self.ts_length, self.num_feature, self.target, Lambda, self.orig, self.mad), \
                            method='nelder-mead', options={'maxiter': 10, 'xatol': 50, 'adaptive': True})
             self.cf = res.x.reshape(1, self.num_feature, self.ts_length)

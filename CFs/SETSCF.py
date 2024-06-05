@@ -83,6 +83,7 @@ class SETSCF(CF):
         train_x, train_y = data
         self.le = LabelEncoder()
         self.train_y = self.le.fit_transform(train_y)
+        self.device = device
         if mode == "time":
             # Parse test data into (1, feat, time):
             self.change = True
@@ -125,13 +126,13 @@ class SETSCF(CF):
         self.threshhold = (None,)
         self.all_heat_maps = (None,)
         self.all_shapelets_class = (None,)
-
         if fit_shapelets == True:
             self.fit()
 
-    def set_models(self, model):
+    def set_models(self, model, device):
+        self.device = device
         if self.backend == "PYT":
-            self.predict = PyTorchModel(model, self.change).predict
+            self.predict = PyTorchModel(model, self.change,device=self.device).predict
         elif self.backend == "TF":
             self.predict = TensorFlowModel(model, self.change).predict
         elif self.backend == "SK":
@@ -212,3 +213,12 @@ class SETSCF(CF):
         # if expl is None:
         #     print("Could not find a cf for this timeseries")
         return expl, label
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        return state
+
+    def __setstate__(self, state):
+        # 为旧对象添加新属性
+        if 'c' not in state:
+            state['device'] = 'cuda:0'
+        self.__dict__.update(state)

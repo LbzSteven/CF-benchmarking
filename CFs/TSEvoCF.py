@@ -1,6 +1,10 @@
 import numpy as np
 
 from TSInterpret.InterpretabilityModels.counterfactual.CF import CF
+from TSInterpret.Models.SklearnModel import SklearnModel
+from TSInterpret.Models.TensorflowModel import TensorFlowModel
+
+from CFs.PyTorchModel import PyTorchModel
 from CFs.TSEvo.Evo import (
     EvolutionaryOptimization,
 )
@@ -58,7 +62,18 @@ class TSEvo(CF):
             self.x, self.y = None, None
             print("Dataset is no Tuple ")
         pass
-
+        if mode == "time":
+            # Parse test data into (1, feat, time):
+            self.change = True
+        elif mode == "feat":
+            self.change = False
+        self.device = device
+        if self.backend == "PYT":
+            self.predict = PyTorchModel(model, self.change,device=self.device).predict
+        elif self.backend == "TF":
+            self.predict = TensorFlowModel(model, self.change).predict
+        elif self.backend == "SK":
+            self.predict = SklearnModel(model, self.change).predict
     def explain(
         self,
         original_x,
@@ -86,7 +101,14 @@ class TSEvo(CF):
             # original_x.shape[0], original_x.shape[2], original_x.shape[1]
             # )
         neighborhood = []
-        if target_y is not None:
+
+        if target_y is None:
+            output = self.predict(original_x)
+            # pred_treshold = 0.5
+            target_y = np.argsort(output)[0][-2:-1][0] # we keep the target as the second largest prediction
+            reference_set = self.x[np.where(self.y == target_y)]
+
+        elif target_y is not None:
             if not type(target_y) == int:
                 target_y = np.argmax(original_y, axis=1)[0]
             reference_set = self.x[np.where(self.y == target_y)]

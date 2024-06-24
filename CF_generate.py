@@ -1,30 +1,26 @@
 import argparse
+import json
 import os
 import time
+import warnings
+import pickle
 from datetime import date
 import pandas as pd
 from tqdm import trange
 
-from utils.data_util import read_UCR_UEA, get_UCR_UEA_sets, save_result_JSON, get_result_JSON
-from utils.model_util import model_init
-from utils.visual_util import visualize_TSinterpret
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-from tslearn.datasets import UCR_UEA_datasets
-import json
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from tslearn.datasets import UCR_UEA_datasets
 
-import warnings
-import pickle
-
-from models.ResNet import ResNetBaseline
-from models.FCN import FCN
 from utils.train_util import get_all_preds, UCRDataset, generate_loader
-from utils.model_util import get_AE_dict
-from quantative.metric import proximity, sparsity, mean_absolute_error, plausibility, generate_metric_stat
+from utils.cf_util import timeout
+from utils.data_util import read_UCR_UEA, get_UCR_UEA_sets, save_result_JSON, get_result_JSON,sample_indices_by_label
+from utils.model_util import model_init
+from utils.visual_util import visualize_TSinterpret
+from quantative.metric import proximity, sparsity, mean_absolute_error, generate_metric_stat
 
 warnings.filterwarnings("ignore")
 # from TSInterpret.InterpretabilityModels.counterfactual.NativeGuideCF import NativeGuideCF
@@ -32,7 +28,14 @@ warnings.filterwarnings("ignore")
 # from TSInterpret.InterpretabilityModels.counterfactual.COMTECF import COMTECF
 import CFs
 
-
+@timeout(seconds=3600)
+def explain_with_timeout(exp_model,orig,pred_label):
+    if isinstance(exp_model, CFs.COMTECF) or isinstance(exp_model, CFs.SETSCF) or isinstance(exp_model,
+                                                                                             CFs.wCF):  # we keep the target as the second largest prediction
+        CF, pred_CF = exp_model.explain(orig)
+    else:
+        CF, pred_CF = exp_model.explain(orig, pred_label)
+    return CF, pred_CF
 def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=False, device='cuda:0'):
     model_dataset_path = f'../models/{model_name}/{dataset}'
     CF_path = f'../CF_result/{CF_method}/{model_name}/{dataset}'
@@ -60,14 +63,14 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
     if CF_method == 'NG':
         exp_model: CFs.NGCF = CFs.NGCF(model, (train_x, train_pred), backend='PYT', mode='feat', method='NG', max_iter=input_size, device=device) # Here we use train_pred otherwise may generate invalid prediction
     elif CF_method == 'NUN_CF':
-        exp_model: CFs.NGCF = CFs.NGCF(model, (train_x, train_pred), backend='PYT', mode='feat', method='NUN_CF', max_iter=input_size, device=device)
+        exp_model: CFs.NGCF = CFs.NGCF(model, (train_x, train_pred), backend='PYT', mode='feat',distance_measure="euclidean", method='NUN_CF', max_iter=input_size, device=device)
     elif CF_method == 'NG_DTW':
         exp_model: CFs.NGCF = CFs.NGCF(model, (train_x, train_pred), backend='PYT', mode='feat', method='dtw_bary_center',
                                        max_iter=10000, device=device)
     elif CF_method == 'TSEvo':
         exp_model: CFs.TSEvo = CFs.TSEvo(model=model, data=(test_x, np.array(test_pred)), mode='feat', backend='PYT', epochs=500, device=device)
     elif CF_method == 'COMTE':
-        exp_model: CFs.COMTECF = CFs.COMTECF(model, (train_x, train_pred), backend='PYT', mode='feat', method='opt', device=device)
+        exp_model: CFs.COMTECF = CFs.COMTECF(model, (train_x,train_y, train_pred), backend='PYT', mode='feat', method='opt',number_distractors=1, device=device)
     elif CF_method == 'SETS':
         # exp_model = CFs.SETSCF(model, (train_x, train_y), backend='PYT', mode='feat', method='opt')
         shapelets_path = f'../shapelets/{dataset}/SETS.pkl'
@@ -103,30 +106,34 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
 
     num_instance = test_x.shape[0]
 
-    # Fro TSEvo
-    np.random.seed(42)
-    random_selection = np.random.choice(num_instance, size=20, replace=False)
+    # Fro TSEvo and wCF
+    if num_instance>20:
+        np.random.seed(42)
+        random_selection = np.random.choice(num_instance, size=20, replace=False)
+    else:
+        random_selection = np.arange(num_instance)
     pbar = trange(num_instance, desc='Dataset', unit='epoch', initial=0, disable=False)
+
+    timeout_counter = 0
+
     for i in range(num_instance):
         orig = test_x[i].reshape(1, in_channels, -1)
-        pred_label = test_pred[i]  # The pred_label is the True label for TSEvo
-        if isinstance(exp_model, CFs.TSEvo):
+        pred_label = test_pred[i]
+
+        if isinstance(exp_model, CFs.TSEvo) or isinstance(exp_model, CFs.wCF):
             random_i = random_selection[i]
             orig = test_x[random_i].reshape(1, in_channels, -1)
-            pred_label = int(test_pred[random_i])  # The pred_label is the True label for TSEvo
+            pred_label = int(test_pred[random_i])
 
         start = time.time()
 
-        if isinstance(exp_model, CFs.COMTECF) or isinstance(exp_model, CFs.SETSCF) or isinstance(exp_model, CFs.wCF):  # we keep the target as the second largest prediction
-            CF, pred_CF = exp_model.explain(orig)
-        else:
-            CF, pred_CF = exp_model.explain(orig, pred_label)
-
+        CF, pred_CF = explain_with_timeout(exp_model, orig, pred_label)
         durations = time.time() - start
         generation_times.append(durations)
-        if isinstance(exp_model, CFs.TSEvo):
-            pred_CF = np.argmax(pred_CF)
+
         if pred_CF is not None:
+            if isinstance(exp_model, CFs.TSEvo):
+                pred_CF = np.argmax(pred_CF)
             orig = orig.reshape(in_channels, -1)
             CF = CF.reshape(in_channels, -1)
 
@@ -146,10 +153,16 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
             # AE_loss.append(AE_loss_i)
             if i <= 49 and vis_flag:
                 marker = i if not isinstance(exp_model, CFs.TSEvo) else random_selection[i]
-                visualize_TSinterpret(exp_model, orig, pred_label, CF, pred_CF, CF_path, marker)
+                visualize_TSinterpret(orig, pred_label, CF, pred_CF, CF_path, marker)
             num_valid = num_valid + 1
+        elif CF=='To':
+            timeout_counter += 1
+        else:
+            timeout_counter = 0
+        if timeout_counter == 10:
+            return 'Time out 10 consecutive time'
         pbar.update(1)
-        if isinstance(exp_model, CFs.TSEvo) and i == 19:  # TSEvo only execute for 20 random instances
+        if (isinstance(exp_model, CFs.TSEvo) or isinstance(exp_model, CFs.wCF)) and i == 19:  # TSEvo only execute for 20 random instances
             break
     np.save(f'{CF_path}/CF.npy', np.array(exp_results))
     np.save(f'{CF_path}/valid.npy', np.array(list_valid))
@@ -158,7 +171,7 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
     np.save(f'{CF_path}/test_pred.npy', test_pred)
     np.save(f'{CF_path}/test_y.npy', np.argmax(test_y, axis=1))  # Change from onehot to a class number notice this is different from the original class name
     np.save(f'{CF_path}/generation_times.npy', np.array(generation_times))
-    return generate_metric_stat(L0, L1, L2, Linf, maes, generation_times, num_instance, num_valid)
+    return generate_metric_stat(L0, L1, L2, Linf, maes, generation_times, i+1, num_valid)
 
 
 # def get_all_CF():
@@ -212,7 +225,10 @@ def generate_CF(CF_name, model_name, dataset_choice, device: str = 'cuda:0', sta
             # get reference acc of this method on this dataset
             print(f'Generating CF with {CF_name} on {dataset} with model {model_name}')
             results = method_record[dataset]
-            if 'NotEvaluate' in results:
+            # if 'NotEvaluate' in results:
+            if True:
+                if dataset == 'FaceDetection':
+                    continue
                 # acc = train_model_datasets(dataset, model_name, device, UCR_UEA_dataloader)
                 # acc = np.random.randint(1)
                 results = CF_generate(dataset, model_name, CF_name, vis_flag=False, device=device)
@@ -237,13 +253,7 @@ if __name__ == '__main__':
     parser.add_argument('--end_per', type=float, default=1.0, help='ending percentage of whole datasets')
     args = parser.parse_args()
     generate_CF(args.CF_name, args.model_name, args.dataset_choice, args.CUDA, args.start_per, args.end_per)
-    # for CF_method in ['NUN_CF']:
-    #     # for CF_method in ['NG']:
-    #     model_name = 'MLP'
-    #     dataset = 'BasicMotions'
-    #     CF_generate(dataset, model_name, CF_method=CF_method, AE_name='FCN_AE', vis_flag=True)
-    # for CF_method in ['NUN_CF']:
-    #     # for CF_method in ['NG']:
-    #     model_name = 'MLP'
-    #     dataset = 'Computers'
-    #     CF_generate(dataset, model_name, CF_method=CF_method, AE_name='FCN_AE', vis_flag=True)
+
+    # CF_generate('ECG5000', 'FCN', 'NG', vis_flag=False, device='cuda:4')
+
+

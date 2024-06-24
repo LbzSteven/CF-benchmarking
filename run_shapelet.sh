@@ -17,7 +17,7 @@ trap cleanup SIGINT
 
 # parallel execute 10 programs
 for i in $(seq 1 10); do
-    python shapelet_mining_SETS.py --dataset_choice all --start_per "$start_per" --end_per "$end_per" &
+    python shapelet_mining_SETS.py --dataset_choice selected_mul --start_per "$start_per" --end_per "$end_per" &
     
 
     start_per=$(echo "$start_per + 0.1" | bc)

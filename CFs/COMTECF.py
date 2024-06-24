@@ -5,7 +5,7 @@ from TSInterpret.InterpretabilityModels.counterfactual.CF import CF
 from .PyTorchModel import PyTorchModel
 from TSInterpret.Models.SklearnModel import SklearnModel
 from TSInterpret.Models.TensorflowModel import TensorFlowModel
-from TSInterpret.InterpretabilityModels.counterfactual.COMTE.Optimization import (
+from CFs.COMTE.Optimization import (
     BruteForceSearch,
     OptimizedSearch,
 )
@@ -48,7 +48,7 @@ class COMTECF(CF):
         """
         super().__init__(model, mode)
         self.backend = backend
-        test_x, test_y = data
+        test_x, test_y,pred_y = data
         shape = test_x.shape
         if mode == "time":
             # Parse test data into (1, feat, time):
@@ -69,7 +69,7 @@ class COMTECF(CF):
         elif backend == "SK":
             self.predict = SklearnModel(model, change).predict
 
-        self.referenceset = (test_x, test_y)
+        self.referenceset = (test_x, test_y,pred_y)
         self.method = method
         self.silent = silent
         self.number_distractors = number_distractors
@@ -92,14 +92,14 @@ class COMTECF(CF):
         org_shape = x.shape
         if self.mode != "feat":
             x = np.swapaxes(x, -1, -2)  # x.reshape(-1, x.shape[-1], x.shape[-2])
-        train_x, train_y = self.referenceset
+        train_x, train_y,pred_y = self.referenceset
         if len(train_y.shape) > 1:
             train_y = np.argmax(train_y, axis=1)
         if self.method == "opt":
             opt = OptimizedSearch(
                 self.predict,
                 train_x,
-                train_y,
+                (train_y,pred_y),
                 silent=self.silent,
                 threads=1,
                 num_distractors=self.number_distractors,
@@ -108,7 +108,7 @@ class COMTECF(CF):
             )
             exp, label = opt.explain(x, to_maximize=target)
         elif self.method == "brute":
-            opt = BruteForceSearch(self.predict, train_x, train_y, threads=1)
+            opt = BruteForceSearch(self.predict, train_x, train_y,silent=self.silent, threads=1,num_distractors=self.number_distractors)
             exp, label = opt.explain(x, to_maximize=target)
         if self.mode != "feat":
             exp = np.swapaxes(exp, -1, -2)

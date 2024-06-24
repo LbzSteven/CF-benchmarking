@@ -151,8 +151,8 @@ def train_UCR_UEA(model_name, dataset_choice, device: str = 'cuda:0', start_per:
             threshold = reference_method[dataset] if dataset in existing_accs else None
             print(f'Reported acc of {model_name} on {dataset} is {threshold}')
             acc = method_record[dataset]
-            # if 'NotTrained' in str(acc):
-            if dataset == 'EigenWorms':
+            if 'NotTrained' in str(acc):
+            # if dataset == 'EigenWorms':
                 # acc = train_model_datasets(dataset, model_name, device, UCR_UEA_dataloader)
                 # acc = np.random.randint(1)
                 acc = train_model_datasets_till_threshold(dataset, model_name, threshold, device, UCR_UEA_dataloader, repeat=5)

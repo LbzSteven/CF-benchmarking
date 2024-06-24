@@ -57,3 +57,4 @@ def get_AE_dict(model_name, path, in_channels, input_size):
         AEc.eval()
         AE_dict[c] = AEc
     return AE_dict
+

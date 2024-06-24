@@ -40,7 +40,7 @@ class wCF(CF):
     ) -> None:
         super().__init__(model, mode)
         shape = X_train.shape
-        print(shape)
+        # print(shape)
         if mode == "time":
             # Parse test data into (1, feat, time):
             change = True
@@ -64,16 +64,16 @@ class wCF(CF):
         self.mad = stats.median_abs_deviation(X_train, axis=0)
         self.pred_threshold = pred_threshold
     def explain(self, x: np.ndarray, orig_class: int = None, target: int = None) -> Tuple[np.ndarray, int]:
-        print(x.shape)
+        # print(x.shape)
         if self.mode != "feat":
             x = np.swapaxes(x, -1, -2)
         self.orig = x.copy()
         self.cf = x.copy()
-        print(x.shape)
+        # print(x.shape)
         if target is None:
             self.target = np.argsort((self.predict(x)))[0][-2:-1][0]
-        print(self.predict(x))
-        print(self.target)
+        # print(self.predict(x))
+        # print(self.target)
         prob_target = self.predict(self.cf)[0][self.target]
         i = 0
         while prob_target < self.pred_threshold:

@@ -138,7 +138,7 @@ class SETSCF(CF):
         elif self.backend == "SK":
             self.predict = SklearnModel(model, self.change).predict
 
-    def fit(self, occlusion_threshhold=1e-1, remove_multiclass_shapelets=True):
+    def fit(self, occurrences_threshhold=1e-1, remove_multiclass_shapelets=True):
         """
         Calculates the occurences of shapelets and removes shapelets belonging to more than one class. This process can be triggered with different parameter options without a new shapelet transform run.
         Arguments:
@@ -150,7 +150,7 @@ class SETSCF(CF):
 
         """
         print(
-            f"Fit function to prune shapelets with occlusion threshhold of {occlusion_threshhold} and remove shapelets belonging to more than one class set to {remove_multiclass_shapelets}"
+            f"Fit function to prune shapelets with occurrences threshhold of {occurrences_threshhold} and remove shapelets belonging to more than one class set to {remove_multiclass_shapelets}"
         )
         (
             self.fitted_shapelets,
@@ -163,7 +163,7 @@ class SETSCF(CF):
             self.shapelets,
             self.train_distances,
             self.random_state,
-            occlusion_threshhold,
+            occurrences_threshhold,
             remove_multiclass_shapelets,
         )
 

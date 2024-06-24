@@ -2,9 +2,9 @@ import numpy as np
 import pandas as pd
 import matplotlib
 
-# matplotlib.use('agg')
-import matplotlib.pyplot as plt
 
+import matplotlib.pyplot as plt
+# matplotlib.use('agg')
 # matplotlib.rcParams['font.family'] = 'sans-serif'
 # matplotlib.rcParams['font.sans-serif'] = 'Arial'
 
@@ -369,8 +369,8 @@ def draw_cd_diagram(df_perf=None, alpha=0.05, method_col='classifier_name', metr
     font = {'family': 'sans-serif',
         'color':  'black',
         'weight': 'normal',
-        'size': 22,
+        'size': 10,
         }
     if title:
-        plt.title(title,fontdict=font, y=0.9, x=0.5)
+        plt.title(title,fontdict=font)
     plt.savefig(save_path)

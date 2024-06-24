@@ -54,6 +54,7 @@ class NGCF(CF):
             self.ts_length = test_x.shape[-1]
         self.num_feature = test_x.shape[-2]
         self.model.to(device)
+
         if backend == "PYT":
             self.remove_all_hooks(self.model)
             # try:
@@ -104,7 +105,7 @@ class NGCF(CF):
                     child._backward_hooks: Dict[int, Callable] = OrderedDict()
                 self.remove_all_hooks(child)
 
-    def _nearest_unlike_retrieval(self, query, predicted_label, distance, n_neighbors):
+    def _nearest_unlike_retrieval(self, query, predicted_label, target, distance, n_neighbors):
         """
         This gets the nearest unlike neighbors.
         Arguments:
@@ -129,14 +130,14 @@ class NGCF(CF):
         ts_length = self.ts_length
         num_feature = self.num_feature
         knn = KNeighborsTimeSeries(n_neighbors=n_neighbors, metric=distance)
-        knn.fit(x_train[list(np.where(y != predicted_label))].reshape(-1, ts_length, num_feature))
+        knn.fit(x_train[list(np.where(y == target))].reshape(-1, ts_length, num_feature))
         dist, ind = knn.kneighbors(query.reshape(1, ts_length, num_feature), return_distance=True)
         x_train.reshape(-1, 1, ts_length)
-        return dist[0], x_train[np.where(y != predicted_label)][ind[0]]
+        return dist[0], x_train[np.where(y == target)][ind[0]]
 
-    def _nearest_unlike_neighbor(self, query, predicted_label, distance, n_neighbors):
+    def _nearest_unlike_neighbor(self, query, predicted_label,target, distance, n_neighbors):
         _, nun = self._nearest_unlike_retrieval(
-            query, predicted_label, distance, n_neighbors
+            query, predicted_label,target, distance, n_neighbors
         )
         if nun is None:
             return None, None
@@ -145,6 +146,10 @@ class NGCF(CF):
         if np.argmax(out) == predicted_label:
             print(out, predicted_label)
             print("No Counterfactual found. Most likely caused by a constant predictor.")
+            return None, None
+        if np.argmax(out) != target:
+            print(out, target)
+            print("Not a correct target label.")
             return None, None
 
         return nun, np.argmax(out)
@@ -179,9 +184,9 @@ class NGCF(CF):
     #     self, instance, label, subarray_length=1, max_iter=500
     # ):
     def _counterfactual_generator_swap(
-            self, instance, label, subarray_length=1, max_iter=500
+            self, instance, label,target, subarray_length=1, max_iter=500
     ):
-        _, nun = self._nearest_unlike_retrieval(instance, label, self.distance_measure, 1)
+        _, nun = self._nearest_unlike_retrieval(instance, label, target, self.distance_measure, 1)
         if np.count_nonzero(nun.reshape(-1) - instance.reshape(-1)) == 0:
             print("Starting and nun are Identical !")
 
@@ -227,7 +232,9 @@ class NGCF(CF):
         ]  # torch.nn.functional.softmax(model(torch.from_numpy(test_x))).detach().numpy()[0][y_pred[instance]]
 
         counter = 0
-        while prob_target > 0.5 and counter < max_iter:
+        pred = np.argmax(out, axis=1)[0]
+        #while prob_target > 0.5 and counter < max_iter: # Ziwen This is not a valid way to flip the model, chances are that the original class is<0.5 but still the largest probability
+        while pred != target and counter < max_iter:
             subarray_length += 1
             starting_point, most_influencial_array = self._findSubarray(
                 (training_weights), subarray_length
@@ -245,11 +252,16 @@ class NGCF(CF):
             # )
             out = self.predict(individual)
             prob_target = out[0][label]
+            pred = np.argmax(out, axis=1)[0]
             counter = counter + 1
             # if counter == max_iter or subarray_length == self.ts_length:
             if counter == max_iter:
                 print("No Counterfactual found")
                 return None, None
+        if np.argmax(out)!= target:
+            print(np.argmax(out), target,label)
+            print("Not a correct target label.")
+            return None, None
 
         return X_example, np.argmax(out, axis=1)[0]
 
@@ -301,15 +313,19 @@ class NGCF(CF):
         """
         if self.mode == "time":
             x = x.reshape(x.shape[0], x.shape[2], x.shape[1])
+
+        output = self.predict(x)
+        target = np.argsort(output)[0][-2:-1][0]
+
         if self.method == "NUN_CF":
             return self._nearest_unlike_neighbor(
-                x, y, self.distance_measure, self.n_neighbors
+                x, y,target, self.distance_measure, self.n_neighbors
             )
         elif self.method == "dtw_bary_center":
             return self._instance_based_cf(x, y, self.distance_measure)
         elif self.method == "NG":
 
             self.distance_measure = "euclidean"
-            return self._counterfactual_generator_swap(x, y, max_iter=self.max_iter)
+            return self._counterfactual_generator_swap(x, y,target, max_iter=self.max_iter)
         else:
             print("Unknown Method selected.")

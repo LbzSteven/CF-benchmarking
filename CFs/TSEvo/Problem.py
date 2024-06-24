@@ -90,10 +90,11 @@ class MultiObjectiveCounterfactuals(Problem):
         otherwise."""
         # TODO
         prediction, _ = self.predict(np.asarray(individual))
-
-        if prediction != self.original_label:
+        # Ziwen I changed this stuff as it should be feasible when it is the target class
+        # if prediction != self.original_label:
+        #     return True
+        if prediction == self.target:
             return True
-
         return False
 
     # todo normalize

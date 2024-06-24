@@ -1,6 +1,9 @@
 import json
 import os.path
 import pickle
+
+import numpy as np
+import pandas as pd
 import sklearn.preprocessing
 from tslearn.datasets import UCR_UEA_datasets
 
@@ -60,6 +63,9 @@ def get_UCR_UEA_sets(dataset_choice: str) -> list:
         datasets = selected_mul
     elif dataset_choice == 'selected_all':
         datasets = selected_all
+    elif dataset_choice == 'multiclass_uni':
+        datasets =['ElectricDevices', 'ECG5000', 'NonInvasiveFetalECGThorax1', 'ShapesAll', 'UWaveGestureLibraryAll', 'CBF',
+         'TwoPatterns', 'Beef']
     else:
         raise 'wrong set of datasets'
 
@@ -87,3 +93,112 @@ def save_result_JSON(method_name, record_dict):
 
     with open(full_path, 'w') as file:
         json.dump(record_dict, file, indent=4)
+
+
+def sample_indices_by_label(labels, selected_size=250):
+    """
+    Sample indices from each label group in the dataset.
+
+    Parameters:
+    - labels (list or numpy array): Array of labels.
+    - n_instances (int): Number of instances to sample from each label.
+
+    Returns:
+    - selected_indices (list): List of indices of selected instances in the original dataset.
+    """
+    # Convert labels to DataFrame
+
+
+    selected_indices = []
+    df = pd.DataFrame({
+        'labels': labels
+    })
+    num_instance = len(df)
+    selected_size = min(num_instance, selected_size)
+    frac = selected_size / len(df)
+    for label, group in df.groupby('labels'):
+        sampled_indices = group.sample(frac=frac, replace=False, random_state=42).index.tolist()
+
+        selected_indices.extend(sampled_indices)
+    selected_indices.sort()
+    return selected_indices
+
+
+def get_CFs(CF_path):
+    """
+
+    Parameters
+    ----------
+    CF_path:  the CF path like './CF_result/NG/FCN/GunPoint/'
+
+    Returns:  valid, test_x, test_y, y_pred, exp_results, pred_CFs,
+    -------
+
+    """
+    exp_results = np.load(f'{CF_path}/CF.npy')
+    test_x = np.load(f'{CF_path}/test_x.npy')
+    test_y = np.load(f'{CF_path}/test_y.npy')
+    valid = np.load(f'{CF_path}/valid.npy')
+    pred_CFs = np.load(f'{CF_path}/pred_CFs.npy')
+    if os.path.exists(f'{CF_path}/test_pred.npy'):
+        y_pred = np.load(f'{CF_path}/test_pred.npy')
+    else:
+        y_pred = np.load(f'{CF_path}/y_pred.npy')
+    return valid, test_x, test_y, y_pred, exp_results, pred_CFs,
+
+def get_valid_CF_given_path(path):
+    valid,tx,ty,pred,cf,cf_pred = get_CFs(path)
+    num_instance = len(tx)
+    if 'wCF' in path or 'TSEvo' in path:
+        if num_instance>20:
+            np.random.seed(42)
+            random_selection = np.random.choice(num_instance, size=20, replace=False)
+        else:
+            random_selection = np.arange(num_instance)
+        tx_selected = tx[random_selection]
+        ty_selected = ty[random_selection]
+        pred_selected = pred[random_selection]
+        num_instance = 20
+    else:
+        random_selection = None
+        tx_selected = tx
+        ty_selected = ty
+        pred_selected = pred
+    tx_valid = tx_selected[valid]
+    ty_valid = ty_selected[valid]
+    pred_valid = pred_selected[valid]
+    return valid,tx_valid,ty_valid,pred_valid,cf,cf_pred, random_selection, num_instance
+
+def get_CF_dataset_metric(df, CF_names=None, datasets=None, metrics=None,ordered=None):
+    df =df.copy()
+    if CF_names is None:
+        CF_names = df['CF_name'].unique().tolist()
+    if datasets is None:
+        datasets = df['dataset_name'].unique().tolist()
+    if metrics is None:
+        metrics = ['L0', 'L1', 'L2',  'Linf',  'maes',  'gtime', 'valid','all','classwise']
+    elif metrics == 'sparsity':
+        metrics = ['L0']
+    elif metrics == 'proximity':
+        metrics = ['L1','L2', 'Linf', 'maes']
+    elif metrics == 'plausibility':
+        metrics = ['all','classwise']
+
+    if not isinstance(CF_names, list):
+        CF_names = [CF_names]
+    if not isinstance(datasets,list):
+        datasets = [datasets]
+    if not isinstance(metrics,list):
+        metrics = [metrics]
+    for metric in metrics:
+        if metric+'_std' in df.columns:
+            df[metric] = df.apply(lambda row: f"{row[metric]}({row[metric+'_std']})", axis=1)
+    # print(metrics)
+    columns = ['CF_name', 'dataset_name'] + metrics
+    df_output = df[columns].copy()
+    df_output = df_output[(df_output['CF_name'].isin(CF_names)) & (df_output['dataset_name'].isin(datasets))].copy()
+
+    if ordered is not None:
+        df_output['dataset_name'] = pd.Categorical(df_output['dataset_name'], categories=ordered, ordered=True)
+        df_output = df_output.sort_values('dataset_name').reset_index(drop=True)
+    return df_output

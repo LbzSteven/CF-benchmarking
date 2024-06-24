@@ -80,9 +80,10 @@ def mining_shapelets_for_SETS(dataset_choice, start_per: float = 0.0, end_per: f
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Specify models and datasets')
-    parser.add_argument('--dataset_choice', type=str, default='all', help='dataset name')
-    parser.add_argument('--start_per', type=float, default=0.0, help='starting percentage of whole datasets')
-    parser.add_argument('--end_per', type=float, default=1.0, help='ending percentage of whole datasets')
-    args = parser.parse_args()
-    mining_shapelets_for_SETS(args.dataset_choice, args.start_per, args.end_per)
+    # parser = argparse.ArgumentParser(description='Specify models and datasets')
+    # parser.add_argument('--dataset_choice', type=str, default='all', help='dataset name')
+    # parser.add_argument('--start_per', type=float, default=0.0, help='starting percentage of whole datasets')
+    # parser.add_argument('--end_per', type=float, default=1.0, help='ending percentage of whole datasets')
+    # args = parser.parse_args()
+    # mining_shapelets_for_SETS(args.dataset_choice, args.start_per, args.end_per)
+    SETS_mine('FaceDetection', max_len=None, contract_time_per_dim=None, UCR_UEA_dataloader=UCR_UEA_datasets())

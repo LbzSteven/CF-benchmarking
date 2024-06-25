@@ -305,3 +305,48 @@ def compute_plausibility_dataset(dataset,model_name,CF_method,num_neighbor=5,sav
         with open(os.path.join(CF_path, 'plausibility.json'), 'w') as file:
             json.dump(plau, file, indent=4)
     return all_dist_neighbor, classwise_dist_neighbor
+
+
+def threshold_replace(orig, cf, threshold=0.001):
+    drange = (np.max(orig) - np.min(orig)) * threshold
+    diff = np.abs(orig - cf)
+    result = np.where(diff < drange, orig, cf)
+    # count_tiny_modification = np.count_nonzero(np.where((diff< drange) &(diff > 0)))
+    # print(f'In total {count_tiny_modification} points are below thrshold')
+    count_tiny_modification = np.count_nonzero(np.where((diff < drange) & (diff > 0)))
+    L0_threshold = np.count_nonzero(np.where(diff >= drange)) / orig.shape[1]
+    return result, L0_threshold, count_tiny_modification
+
+
+def threshold_sparsity(orig, cf, cf_pred, model, threshold=0.001):
+    cf_modified, L0_threshold, count_tiny_modification = threshold_replace(orig, cf, threshold=threshold)
+    interpretable = 1
+
+    if count_tiny_modification > 0:
+        with torch.no_grad():
+            pred = model(torch.from_numpy(cf_modified.reshape(1, cf_modified.shape[0], -1)).float())
+            pred = F.softmax(pred)
+            pred = pred.cpu().numpy()
+            pred_modi = np.argmax(pred, axis=1)[0]
+            if pred_modi != cf_pred:
+                interpretable = 0
+
+    return L0_threshold, interpretable
+
+
+def threshold_sparsity_on_datasets(tx_valid, cfs, cf_preds, model, threshold=0.001):
+    L0s = []
+    interpretables = []
+    num_valid = tx_valid.shape[0]
+    in_channels = tx_valid.shape[-2]
+    for i in range(num_valid):
+        orig = tx_valid[i].reshape(in_channels, -1)
+        cf = cfs[i].reshape(in_channels, -1)
+        cf_pred = cf_preds[i]
+        L0_threshold, interpretable = threshold_spasity(orig, cf, cf_pred, model, threshold=threshold)
+        L0s.append(L0_threshold)
+        # if interpretable == 0:
+        #     print(f"found uninterpretable with {i}")
+        interpretables.append(interpretable)
+    return L0s, interpretables
+

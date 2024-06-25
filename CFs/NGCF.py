@@ -34,7 +34,7 @@ class NGCF(CF):
             backend="PYT",
             mode="feat",
             method="NUN_CF",
-            distance_measure="dtw",
+            distance_measure="euclidean",
             n_neighbors=1,
             max_iter=500,
             device='cuda:0'

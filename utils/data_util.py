@@ -94,6 +94,14 @@ def save_result_JSON(method_name, record_dict):
     with open(full_path, 'w') as file:
         json.dump(record_dict, file, indent=4)
 
+def get_instance_result_JSON(CF_path):
+    full_path_result = os.path.join(CF_path,"results.json")
+    full_path_plau = os.path.join(CF_path,"plausibility.json")
+    with open(full_path_result, 'r') as file:
+            result_dict:dict = json.load(file)
+    with open(full_path_plau, 'r') as file:
+            plau_dict:dict = json.load(file)
+    return result_dict, plau_dict
 
 def sample_indices_by_label(labels, selected_size=250):
     """
@@ -150,15 +158,13 @@ def get_valid_CF_given_path(path):
     valid,tx,ty,pred,cf,cf_pred = get_CFs(path)
     num_instance = len(tx)
     if 'wCF' in path or 'TSEvo' in path:
-        if num_instance>20:
-            np.random.seed(42)
-            random_selection = np.random.choice(num_instance, size=20, replace=False)
-        else:
-            random_selection = np.arange(num_instance)
+
+        np.random.seed(42)
+        random_selection = np.load(f'{path}/iterator.npy')
         tx_selected = tx[random_selection]
         ty_selected = ty[random_selection]
         pred_selected = pred[random_selection]
-        num_instance = 20
+        num_instance = len(random_selection)
     else:
         random_selection = None
         tx_selected = tx

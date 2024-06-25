@@ -7,7 +7,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from tslearn.datasets import UCR_UEA_datasets
 
-from utils.data_util import get_valid_CF_given_path, read_UCR_UEA
+from utils.data_util import get_valid_CF_given_path, read_UCR_UEA, get_instance_result_JSON
 
 
 def plot(original, org_label, exp, exp_label, vis_change=True, all_in_one=False, save_fig=None, figsize=(6.4, 4.8)):
@@ -138,7 +138,7 @@ def plot(original, org_label, exp, exp_label, vis_change=True, all_in_one=False,
 
 
 def plot_in_one(
-    item, org_label, exp, cf_label, save_fig=None, figsize=(6.4, 4.8)
+    item, org_label, exp, cf_label,texts=None, save_fig=None, figsize=(6.4, 4.8)
 ):
 
     item = item.reshape(item.shape[-2], item.shape[-1])
@@ -181,6 +181,10 @@ def plot_in_one(
     ax.grid(color="#2A3459")
     plt.xlabel("Time", fontweight="bold", fontsize="large")
 
+    if texts is not None:
+        for i in range(len(texts)):
+            text_i= texts[i]
+            fig.text(0.9, 0.9-0.12*i, text_i, fontsize=12, color='black')
     if ind != "":
         plt.ylabel(f"Feature {ind[0][0]}", fontweight="bold", fontsize="large")
     else:
@@ -190,29 +194,44 @@ def plot_in_one(
     else:
         plt.savefig(save_fig,dpi=800)
 
-def visualize_TSinterpret(orig, pred, CF, pred_CF, path, marker,save=False,save_path = None):
+def visualize_TSinterpret(orig, pred, CF, pred_CF, path, marker,texts=None, save=False,save_path = None):
     if not os.path.exists(f'{path}/fig'):
         os.makedirs(f'{path}/fig')
     in_one_save = None if not save else f'{path}/fig/{marker}_2in1_pre{pred}CF{pred_CF}.png' if save_path is None else save_path
     # plot_save = None if not save else f'{path}/fig/{marker}_sep_pre{pred}CF{pred_CF}'
-    plot_in_one(orig, pred, CF, pred_CF, save_fig=in_one_save)
-    plot(orig, pred, CF, pred_CF, save_fig=None)
+    plot_in_one(orig, pred, CF, pred_CF, texts, save_fig=in_one_save)
+    # plot(orig, pred, CF, pred_CF, save_fig=None)
 
 
-def plot_given_valid_cfs(num, CF_result, name,save,save_path):
-    valid,tx_valid,ty_valid,pred_valid,cf,cf_pred,random_selection, num_instance = CF_result
+def plot_given_valid_cfs(num, CF_result,result_dict, plau_dict, name,save,save_path):
+    valid,tx_valid,ty_valid,pred_valid,cf,cf_pred,random_selection, _ = CF_result
     if 'wCF' in name or 'TSEvo' in name:
         checker = random_selection[valid]
     else:
         checker = valid
     if num in checker:
         pos = np.where(checker==num)[0]
+        # print(plau_dict.keys())
+        L0 = np.array(result_dict['L0'])
+        L1 = np.array(result_dict['L1'])
+        L2 = np.array(result_dict['L2'])
+        Linf = np.array(result_dict['Linf'])
+        maes = np.array(result_dict['maes'])
+        all_dist = plau_dict['all_dist_neighbor']
+        classwise_dist = plau_dict['classwise_dist_neighbor']
         orig = tx_valid[pos]
         pred_label = pred_valid[pos]
         CF = cf[pos]
         pred_CF= cf_pred[pos]
         CF_path = None
-        visualize_TSinterpret(orig, pred_label, CF, pred_CF, CF_path, marker='', save=save,save_path=save_path)
+
+        texts = [f'L0: {L0[pos[0]]:.2f}',f'L1: {L1[pos[0]]:.2f}',
+                 f'L2: {L2[pos[0]]:.2f}',f'Linf: {Linf[pos[0]]:.2f}',
+                 f'maes: {maes[pos[0]]:.2f}',
+                f'all: {all_dist[pos[0]]:.2f}', f'classwise:{classwise_dist[pos[0]]:.2f}']
+        visualize_TSinterpret(orig, pred_label, CF, pred_CF, CF_path,texts, marker='', save=save,save_path=save_path)
+        # print(len(all_dist),pos)
+
     else:
         print(f'{name} doenst have CF for instance {num}')
 
@@ -231,30 +250,38 @@ def given_dataset_model_visualize_CFs(dataset, model, CF_names=None, num=None, s
                 common_elements = temp
         return list(common_elements)
     valids = []
-    CF_results ={}
+    CF_results = {}
+    plau_dicts = {}
+    result_dicts ={}
     for CF_name in CF_names:
         CF_path = f'./CF_result/{CF_name}/{model}/{dataset}/'
         CF_result = get_valid_CF_given_path(CF_path)
-        valid, tx_valid, ty_valid, pred_valid, cf, cf_pred, random_selection = CF_result
+        result_dict, plau_dict =  get_instance_result_JSON(CF_path)
+        valid, tx_valid, ty_valid, pred_valid, cf, cf_pred, random_selection,_ = CF_result
+
         CF_results[CF_name] = CF_result
+        plau_dicts[CF_name] = plau_dict
         if 'wCF' in CF_name or 'TSEvo' in CF_name:
             checker = random_selection[valid]
         else:
             checker = valid
         if 'wCF' in CF_name or 'TSEvo' in CF_name or 'SETS' in CF_name:
             print(f"{CF_name} valid instance: {checker}")
+
         valids.append(checker)
     common_elements = find_common_elements(valids)
     print(common_elements)
     if num is None:
         num = common_elements[0]
+
+
     if save and not os.path.exists(save_dir):
         os.makedirs(save_dir)
     for CF_name, CF_result in CF_results.items():
         print(f'{CF_name} with {num}')
 
         save_path = os.path.join(save_dir, f'{CF_name}_inst{num}.png') if save else None
-        plot_given_valid_cfs(num, CF_result, CF_name,save,save_path)
+        plot_given_valid_cfs(num, CF_result,result_dicts[CF_name], plau_dicts[CF_name], CF_name,save,save_path)
     return CF_results
 
 
@@ -289,7 +316,7 @@ def show_shapelets(dataset, class_index=None, save=True, save_dir=None):
         plt.figure()
         plt.plot(range(shapelet_i.shape[1]) + starting, np.squeeze(shapelet_i),
                  label=f'shapelet:{i},shape:{shapelet_i.shape}')
-        plt.plot(np.squeeze(train_x[instance]), label=f'train instance {instance}')
+        # plt.plot(np.squeeze(train_x[instance]), label=f'train instance {instance}')
         plt.legend()
 
         if save:
@@ -309,7 +336,7 @@ def show_instance_class(dataset, save=True,save_dir = None,i=0):
         os.makedirs(save_dir)
     plt.figure()
     for class_index in np.unique(train_y_orig):
-        instance_index = np.where(train_y_orig==class_index)[0][0]
+        instance_index = np.where(train_y_orig==class_index)[0][i]
         plt.plot(range(input_size),train_x[instance_index].flatten(),label=f'instance {instance_index} label:{train_y_orig[instance_index]}')
     plt.legend()
     if save:

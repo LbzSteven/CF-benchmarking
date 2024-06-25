@@ -162,20 +162,21 @@ if __name__ == '__main__':
     # d2 = get_distance_latent(CF_latent=CF_latent,cf_pred=cf_preds,train_x_latent=train_latent,train_pred=train_preds)
     # print(d2)
 
-    # dataset_choice = 'selected_uni'
+    dataset_choice = 'multiclass_uni'
     # for model_name in ['InceptionTime', 'MLP','FCN','ResNet']:
     #     generate_models_latent(model_name, dataset_choice,device='cuda:0', start_per= 0.0, end_per = 1.0, save = True)
 
-    # for model_name in ['InceptionTime', 'MLP','FCN']:
-    #     for CF_name in ['NUN_CF','NG','wCF','TSEvo','SETS']:
-    #         if model_name == 'MLP' and CF_name=='NG':
-    #             continue
-    #         generate_CFs_latent(CF_name,model_name, dataset_choice,device='cuda:0', start_per= 0.0, end_per = 1.0, save = True)
+    for model_name in ['InceptionTime']: #'MLP','FCN'
+        # for CF_name in ['NUN_CF','NG','wCF','TSEvo','SETS']:
+        for CF_name in ['NG']:
+            if model_name == 'MLP' and CF_name=='NG':
+                continue
+            generate_CFs_latent(CF_name,model_name, dataset_choice,device='cuda:1', start_per= 0.0, end_per = 1.0, save = True)
 
     dataset_choice = 'selected_uni'
-    for model_name in ['InceptionTime', 'MLP','FCN']:
+    for model_name in ['InceptionTime']: # 'MLP','FCN'
         # for CF_name in ['NUN_CF','NG','wCF','TSEvo','SETS']:
-        for CF_name in ['SETS']:
+        for CF_name in ['NG']:
             if model_name == 'MLP' and CF_name=='NG':
                 continue
             compute_plausibility_CFs(model_name,CF_name, dataset_choice)

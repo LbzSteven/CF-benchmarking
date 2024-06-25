@@ -28,7 +28,7 @@ warnings.filterwarnings("ignore")
 # from TSInterpret.InterpretabilityModels.counterfactual.COMTECF import COMTECF
 import CFs
 
-@timeout(seconds=3600)
+# @timeout(seconds=3600)
 def explain_with_timeout(exp_model,orig,pred_label):
     if isinstance(exp_model, CFs.COMTECF) or isinstance(exp_model, CFs.SETSCF) or isinstance(exp_model,
                                                                                              CFs.wCF):  # we keep the target as the second largest prediction
@@ -105,25 +105,25 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
     generation_times = []
 
     num_instance = test_x.shape[0]
-
+    num_selected = 160
     # Fro TSEvo and wCF
-    if num_instance>20:
+    if (num_instance > num_selected) and (isinstance(exp_model, CFs.TSEvo) or isinstance(exp_model,CFs.wCF)):
         np.random.seed(42)
-        random_selection = np.random.choice(num_instance, size=20, replace=False)
+        iterator = sample_indices_by_label(labels=test_pred,selected_size=num_selected)
     else:
-        random_selection = np.arange(num_instance)
-    pbar = trange(num_instance, desc='Dataset', unit='epoch', initial=0, disable=False)
+        iterator = range(num_instance)
+    np.save(f'{CF_path}/iterator.npy', np.array(iterator))
 
     timeout_counter = 0
-
-    for i in range(num_instance):
+    pbar = trange(len(iterator), desc='Dataset', unit='epoch', initial=0, disable=False)
+    for i in iterator:
         orig = test_x[i].reshape(1, in_channels, -1)
-        pred_label = test_pred[i]
+        pred_label = int(test_pred[i])
 
-        if isinstance(exp_model, CFs.TSEvo) or isinstance(exp_model, CFs.wCF):
-            random_i = random_selection[i]
-            orig = test_x[random_i].reshape(1, in_channels, -1)
-            pred_label = int(test_pred[random_i])
+        # if isinstance(exp_model, CFs.TSEvo) or isinstance(exp_model, CFs.wCF):
+        #     random_i = random_selection[i]
+        #     orig = test_x[random_i].reshape(1, in_channels, -1)
+        #     pred_label = int(test_pred[random_i])
 
         start = time.time()
 
@@ -162,8 +162,7 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
         if timeout_counter == 10:
             return 'Time out 10 consecutive time'
         pbar.update(1)
-        if (isinstance(exp_model, CFs.TSEvo) or isinstance(exp_model, CFs.wCF)) and i == 19:  # TSEvo only execute for 20 random instances
-            break
+
     np.save(f'{CF_path}/CF.npy', np.array(exp_results))
     np.save(f'{CF_path}/valid.npy', np.array(list_valid))
     np.save(f'{CF_path}/pred_CFs.npy', np.array(pred_CFs))
@@ -226,7 +225,7 @@ def generate_CF(CF_name, model_name, dataset_choice, device: str = 'cuda:0', sta
             print(f'Generating CF with {CF_name} on {dataset} with model {model_name}')
             results = method_record[dataset]
             # if 'NotEvaluate' in results:
-            if True:
+            if CF_name =='TSEvo' or CF_name =='wCF':
                 if dataset == 'FaceDetection':
                     continue
                 # acc = train_model_datasets(dataset, model_name, device, UCR_UEA_dataloader)

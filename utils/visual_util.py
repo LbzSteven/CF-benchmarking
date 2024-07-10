@@ -184,7 +184,7 @@ def plot_in_one(
     if texts is not None:
         for i in range(len(texts)):
             text_i= texts[i]
-            fig.text(0.9, 0.9-0.12*i, text_i, fontsize=12, color='black')
+            fig.text(0.9, 0.80-0.1*i, text_i, fontsize=12, color='black')
     if ind != "":
         plt.ylabel(f"Feature {ind[0][0]}", fontweight="bold", fontsize="large")
     else:
@@ -192,9 +192,9 @@ def plot_in_one(
     if save_fig is None:
         plt.show()
     else:
-        plt.savefig(save_fig,dpi=800)
+        plt.savefig(save_fig,dpi=300, bbox_inches='tight')
 
-def visualize_TSinterpret(orig, pred, CF, pred_CF, path, marker,texts=None, save=False,save_path = None):
+def visualize_TSinterpret(orig, pred, CF, pred_CF, path,texts=None, marker=None, save=False,save_path = None):
     if not os.path.exists(f'{path}/fig'):
         os.makedirs(f'{path}/fig')
     in_one_save = None if not save else f'{path}/fig/{marker}_2in1_pre{pred}CF{pred_CF}.png' if save_path is None else save_path
@@ -205,10 +205,7 @@ def visualize_TSinterpret(orig, pred, CF, pred_CF, path, marker,texts=None, save
 
 def plot_given_valid_cfs(num, CF_result,result_dict, plau_dict, name,save,save_path):
     valid,tx_valid,ty_valid,pred_valid,cf,cf_pred,random_selection, _ = CF_result
-    if 'wCF' in name or 'TSEvo' in name:
-        checker = random_selection[valid]
-    else:
-        checker = valid
+    checker = valid
     if num in checker:
         pos = np.where(checker==num)[0]
         # print(plau_dict.keys())
@@ -225,11 +222,12 @@ def plot_given_valid_cfs(num, CF_result,result_dict, plau_dict, name,save,save_p
         pred_CF= cf_pred[pos]
         CF_path = None
 
-        texts = [f'L0: {L0[pos[0]]:.2f}',f'L1: {L1[pos[0]]:.2f}',
-                 f'L2: {L2[pos[0]]:.2f}',f'Linf: {Linf[pos[0]]:.2f}',
-                 f'maes: {maes[pos[0]]:.2f}',
+        texts = [name,
+                f'L0: {L0[pos[0]]:.2f}',f'L1: {L1[pos[0]]:.2f}',
+                f'L2: {L2[pos[0]]:.2f}',f'Linf: {Linf[pos[0]]:.2f}',
+                f'maes: {maes[pos[0]]:.2f}',
                 f'all: {all_dist[pos[0]]:.2f}', f'classwise:{classwise_dist[pos[0]]:.2f}']
-        visualize_TSinterpret(orig, pred_label, CF, pred_CF, CF_path,texts, marker='', save=save,save_path=save_path)
+        visualize_TSinterpret(orig, pred_label, CF, pred_CF, CF_path,texts=texts, marker='', save=save,save_path=save_path)
         # print(len(all_dist),pos)
 
     else:
@@ -237,7 +235,9 @@ def plot_given_valid_cfs(num, CF_result,result_dict, plau_dict, name,save,save_p
 
 def given_dataset_model_visualize_CFs(dataset, model, CF_names=None, num=None, save=False,save_dir=None):
     if CF_names is None:
-        CF_names = ['NG', 'NUN_CF', 'TSEvo', 'SETS', 'wCF']
+        CF_names = ['NUN_CF','wCF','NG','TSEvo','SETS']
+        if model == 'MLP':
+            CF_names.remove('NG')
     def find_common_elements(lists):
         common_elements = set(lists[0])
 
@@ -253,6 +253,7 @@ def given_dataset_model_visualize_CFs(dataset, model, CF_names=None, num=None, s
     CF_results = {}
     plau_dicts = {}
     result_dicts ={}
+    valid_dicts ={}
     for CF_name in CF_names:
         CF_path = f'./CF_result/{CF_name}/{model}/{dataset}/'
         CF_result = get_valid_CF_given_path(CF_path)
@@ -261,15 +262,15 @@ def given_dataset_model_visualize_CFs(dataset, model, CF_names=None, num=None, s
 
         CF_results[CF_name] = CF_result
         plau_dicts[CF_name] = plau_dict
-        if 'wCF' in CF_name or 'TSEvo' in CF_name:
-            checker = random_selection[valid]
-        else:
-            checker = valid
+        result_dicts[CF_name] = result_dict
+        valid_dicts[CF_name] = valid
+        checker = valid
         if 'wCF' in CF_name or 'TSEvo' in CF_name or 'SETS' in CF_name:
             print(f"{CF_name} valid instance: {checker}")
 
         valids.append(checker)
     common_elements = find_common_elements(valids)
+    common_elements.sort()
     print(common_elements)
     if num is None:
         num = common_elements[0]
@@ -282,7 +283,7 @@ def given_dataset_model_visualize_CFs(dataset, model, CF_names=None, num=None, s
 
         save_path = os.path.join(save_dir, f'{CF_name}_inst{num}.png') if save else None
         plot_given_valid_cfs(num, CF_result,result_dicts[CF_name], plau_dicts[CF_name], CF_name,save,save_path)
-    return CF_results
+    return plau_dicts,common_elements,valid_dicts
 
 
 def show_shapelets(dataset, class_index=None, save=True, save_dir=None):
@@ -345,3 +346,4 @@ def show_instance_class(dataset, save=True,save_dir = None,i=0):
     else:
         plt.show()
     return train_x, test_x, train_y, test_y,input_size
+

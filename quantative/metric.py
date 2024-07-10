@@ -5,6 +5,7 @@ import pickle
 import numpy as np
 import pandas as pd
 import torch
+from torch.nn import functional as F
 from scipy.spatial.distance import cdist
 from sklearn.svm import OneClassSVM
 from sklearn.neighbors import LocalOutlierFactor
@@ -54,12 +55,13 @@ def generate_metric_stat(L0, L1, L2, Linf, maes, generation_times, num_instance,
             np.mean(generation_times), np.std(generation_times),
             num_valid / num_instance]
 
-def generate_metric_post_hoc(L0, L1, L2, Linf, maes,  num_instance, num_valid): # notice that this doesn't reevaluate time
+def generate_metric_post_hoc(L0, L1, L2, Linf, maes,generation_times,  num_instance, num_valid): # notice that this doesn't reevaluate time
     return [np.mean(L0), np.std(L0),
             np.mean(L1), np.std(L1),
             np.mean(L2), np.std(L2),
             np.mean(Linf), np.std(Linf),
             np.mean(maes), np.std(maes),
+            np.mean(generation_times), np.std(generation_times),
             num_valid / num_instance]
 
 # def plausibility(AEcf, AEorig, AE, cf, criterion):
@@ -80,63 +82,64 @@ def generate_metric_post_hoc(L0, L1, L2, Linf, maes,  num_instance, num_valid): 
 #     IM2 = loss_3 / (l1_norm + epsilon)
 #     return IM1, IM2
 
-# def plausibility(cf_label, pred_label, AE_dict, cf, criterion):
-#     AE_cf = AE_dict[cf_label]
-#     AE_pred = AE_dict[pred_label]
-#     AE = AE_dict['AE']
-#     epsilon = 1e-6
-#     _cf = torch.tensor(cf.reshape(1, -1, cf.shape[-1])).float()
-#     # print(cf.shape, _cf.shape)
-#     preds_AEcf = AE_cf(_cf)
-#     loss_1 = criterion(preds_AEcf, _cf).item()
-#     preds_AEorig = AE_pred(_cf)
-#     loss_2 = criterion(preds_AEorig, _cf).item()
-#
-#     IM1 = loss_1 / (loss_2 + epsilon)
-#
-#     preds_AE = AE(_cf)
-#     loss_3 = criterion(preds_AEcf, preds_AE).item()
-#
-#     l1_norm = np.linalg.norm(cf, ord=1)
-#     IM2 = loss_3 / (l1_norm + epsilon)
-#     return IM1, IM2, loss_1, loss_2, loss_3 #we only need IM1 and loss_3
+def plausibility(cf_label, pred_label, AE_dict, cf, criterion):
+    AE_cf = AE_dict[cf_label]
+    AE_pred = AE_dict[pred_label]
+    AE = AE_dict['AE']
+    epsilon = 1e-6
+    _cf = torch.tensor(cf.reshape(1, -1, cf.shape[-1])).float()
+    # print(cf.shape, _cf.shape)
+    preds_AEcf = AE_cf(_cf)
+    loss_1 = criterion(preds_AEcf, _cf).item()
+    preds_AEorig = AE_pred(_cf)
+    loss_2 = criterion(preds_AEorig, _cf).item()
+
+    IM1 = loss_1 / (loss_2 + epsilon)
+
+    preds_AE = AE(_cf)
+    loss_3 = criterion(preds_AEcf, preds_AE).item()
+
+    l1_norm = np.linalg.norm(cf, ord=1)
+    IM2 = loss_3 / (l1_norm + epsilon)
+    return IM1, IM2, loss_1, loss_2, loss_3 #we only need IM1 and loss_3
 
 
 
-# class OODs:
-#     def __init__(self, training_set, seeds=range(0, 10)):
-#         training_set = training_set.reshape(training_set.shape[0], -1)
-#         self.lof = LocalOutlierFactor(n_neighbors=int(np.sqrt(len(training_set))), novelty=True, metric='euclidean').fit(training_set)
-#         self.OC_SVM = OneClassSVM(gamma='scale', nu=0.02).fit(training_set)
-#         self.iforest_list = []
-#         for seed in seeds:
-#             iforest = IsolationForest(random_state=seed).fit(training_set)
-#             self.iforest_list.append(iforest)
-#
-#     def __call__(self, testing_set):
-#         novelty_detection_LOF = self.lof.predict(testing_set)
-#         novelty_detection_OC_SCM = self.OC_SVM.predict(testing_set)
-#         ood_LOF = np.count_nonzero(novelty_detection_LOF == -1)
-#         ood_OC_SVM = np.count_nonzero(novelty_detection_OC_SCM == -1)
-#         ood_LOF_per = ood_LOF / testing_set.shape[0]
-#         ood_OC_SVM_per = ood_OC_SVM / testing_set.shape[0]
-#         ood_iforest_list = []
-#         for i in range(0, 10):
-#             iforest = self.iforest_list[i]
-#             novelty_detection_iforest = iforest.predict(testing_set)
-#             ood_iforest_list.append(np.count_nonzero(novelty_detection_iforest == -1))
-#         ood_iforest_per = np.mean(np.array(ood_iforest_list)) / testing_set.shape[0]
-#         ood_iforest_per_std = np.round(np.std(np.array(ood_iforest_list)) / testing_set.shape[0], 3)
-#         return ood_LOF_per, ood_OC_SVM_per, ood_iforest_per, ood_iforest_per_std
-#
-#     def get_OC_SVM(self):
-#         return self.OC_SVM
-#
-#     def get_lof(self):
-#         return self.lof
-#
-#     def get_iforest_list(self):
-#         return self.iforest_list
+class OODs:
+    def __init__(self, training_set, seeds=range(0, 10)):
+        training_set = training_set.reshape(training_set.shape[0], -1)
+        self.lof = LocalOutlierFactor(n_neighbors=int(np.sqrt(len(training_set))), novelty=True, metric='euclidean').fit(training_set)
+        self.OC_SVM = OneClassSVM(gamma='scale', nu=0.02).fit(training_set)
+        self.iforest_list = []
+        for seed in seeds:
+            iforest = IsolationForest(random_state=seed).fit(training_set)
+            self.iforest_list.append(iforest)
+
+    def __call__(self, testing_set):
+        testing_set = testing_set.reshape(testing_set.shape[0], -1)
+        novelty_detection_LOF = self.lof.predict(testing_set)
+        novelty_detection_OC_SCM = self.OC_SVM.predict(testing_set)
+        ood_LOF = np.count_nonzero(novelty_detection_LOF == -1)
+        ood_OC_SVM = np.count_nonzero(novelty_detection_OC_SCM == -1)
+        # ood_LOF_per = ood_LOF / testing_set.shape[0]
+        # ood_OC_SVM_per = ood_OC_SVM / testing_set.shape[0]
+        ood_iforest_list = []
+        for i in range(0, 10):
+            iforest = self.iforest_list[i]
+            novelty_detection_iforest = iforest.predict(testing_set)
+            ood_iforest_list.append(np.count_nonzero(novelty_detection_iforest == -1))
+        # ood_iforest_per = np.mean(np.array(ood_iforest_list)) / testing_set.shape[0]
+        # ood_iforest_per_std = np.round(np.std(np.array(ood_iforest_list)) / testing_set.shape[0], 3)
+        # return ood_LOF_per, ood_OC_SVM_per, ood_iforest_per, ood_iforest_per_std
+        return ood_LOF, ood_OC_SVM, ood_iforest_list
+    def get_OC_SVM(self):
+        return self.OC_SVM
+
+    def get_lof(self):
+        return self.lof
+
+    def get_iforest_list(self):
+        return self.iforest_list
 
 
 def post_evaluate_CFs_based_on_datasets(exp_results, tx_valid):
@@ -163,7 +166,7 @@ def compute_metric_given_path(path,save=True):
     # valid,tx,ty,pred,cf,cf_pred = get_CFs(path)
     valid, tx_valid, ty_valid, pred_valid, cf, cf_pred, random_selection,num_instance = get_valid_CF_given_path(path)
     L0, L1, L2, Linf, maes, num_valid = post_evaluate_CFs_based_on_datasets(cf, tx_valid)
-
+    gtime = np.load(os.path.join(path,'generation_times.npy'))
     if save:
         results = {
             "L0": L0,
@@ -176,7 +179,7 @@ def compute_metric_given_path(path,save=True):
         with open(os.path.join(path,'results.json'), 'w') as file:
             json.dump(results, file, indent=4)
 
-    return generate_metric_post_hoc(L0, L1, L2, Linf, maes, num_instance, num_valid)
+    return generate_metric_post_hoc(L0, L1, L2, Linf, maes,gtime, num_instance, num_valid)
 
 
 # Plausibility
@@ -268,7 +271,8 @@ def get_CF_latent_neighbor_dist(avg_dist_neighbor_train, CF_latent, cf_pred, tra
     classwise_dist_neighbor = []
     for inst in range(CF_to_train_dist.shape[0]):
         distances = CF_to_train_dist[inst].copy()
-        CF_pred_instance = cf_pred[inst]
+        CF_pred_instance = int(cf_pred[inst])
+
         norm_classwise = avg_dist_neighbor_train[CF_pred_instance]
         norm_all = avg_dist_neighbor_train['all']
         same_label_train = np.where(train_pred == CF_pred_instance)
@@ -343,7 +347,7 @@ def threshold_sparsity_on_datasets(tx_valid, cfs, cf_preds, model, threshold=0.0
         orig = tx_valid[i].reshape(in_channels, -1)
         cf = cfs[i].reshape(in_channels, -1)
         cf_pred = cf_preds[i]
-        L0_threshold, interpretable = threshold_spasity(orig, cf, cf_pred, model, threshold=threshold)
+        L0_threshold, interpretable = threshold_sparsity(orig, cf, cf_pred, model, threshold=threshold)
         L0s.append(L0_threshold)
         # if interpretable == 0:
         #     print(f"found uninterpretable with {i}")

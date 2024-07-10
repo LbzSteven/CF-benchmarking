@@ -221,7 +221,7 @@ def graph_ranks(avranks, names, p_values, cd=None, cdmethod=None, lowv=None, hig
                   (rankpos(ssums[r]) + side, start)],
                  linewidth=linewidth_sign)
             start += height
-            print('drawing: ', l, r)
+            # print('drawing: ', l, r)
 
     # draw_lines(lines)
     start = cline + 0.2
@@ -233,11 +233,11 @@ def graph_ranks(avranks, names, p_values, cd=None, cdmethod=None, lowv=None, hig
     cliques = form_cliques(p_values, nnames)
     i = 1
     achieved_half = False
-    print(nnames)
+    # print(nnames)
     for clq in cliques:
         if len(clq) == 1:
             continue
-        print(clq)
+        # print(clq)
         min_idx = np.array(clq).min()
         max_idx = np.array(clq).max()
         if min_idx >= len(nnames) / 2 and achieved_half == False:
@@ -311,7 +311,7 @@ def wilcoxon_holm(alpha=0.05, df_perf=None,method_col='classifier_name', metric_
             p_value = wilcoxon(perf_1, perf_2, zero_method='zsplit')[1]
 
             # for our valid ValueError: zero_method 'wilcox' and 'pratt' do not work if x - y is zero for all elements.
-            # appen to the list
+            # append to the list
             p_values.append((classifier_1, classifier_2, p_value, False))
     # get the number of hypothesis
     k = len(p_values)
@@ -341,7 +341,7 @@ def wilcoxon_holm(alpha=0.05, df_perf=None,method_col='classifier_name', metric_
 
     # number of wins
     dfff = df_ranks.rank(ascending=ascending,method='min')
-    print(dfff[dfff == 1.0].sum(axis=1))
+    # print(dfff[dfff == 1.0].sum(axis=1))
 
     # average the ranks
     average_ranks = df_ranks.rank(ascending=ascending,na_option='bottom',method='min').mean(axis=1).sort_values(ascending=False)

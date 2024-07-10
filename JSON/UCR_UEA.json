@@ -549,6 +549,10 @@
         "AtrialFibrillation",
         "RacketSports",
         "SelfRegulationSCP1",
-        "ERing"
+        "ERing",
+        "Libras",
+        "PenDigits",
+        "UWaveGestureLibrary",
+        "Phoneme"
     ]
 }

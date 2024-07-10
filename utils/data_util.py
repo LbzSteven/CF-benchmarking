@@ -46,6 +46,13 @@ def get_UCR_UEA_sets(dataset_choice: str) -> list:
 
     selected_uni = UCR_UEA['selected_uni']
     selected_uni = [item for item in selected_uni if item in all_equal_length]
+    selected_uni_ordered = ['Computers', 'ElectricDevices', 'ECG200', 'ECG5000', 'NonInvasiveFetalECGThorax1',
+                            'DistalPhalanxOutlineCorrect', 'HandOutlines', 'ShapesAll', 'Yoga', 'GunPoint',
+                            'UWaveGestureLibraryAll', 'PowerCons', 'Earthquakes', 'FordA', 'Wafer', 'CBF',
+                            'TwoPatterns', 'Beef', 'Strawberry', 'Chinatown']
+    selected_mul_ordered = ['Heartbeat', 'StandWalkJump', 'SelfRegulationSCP1', 'Cricket',
+                             'BasicMotions', 'Epilepsy', 'NATOPS', 'RacketSports', 'EigenWorms','Libras','UWaveGestureLibrary'
+                            'Phoneme']
     selected_mul = UCR_UEA['selected_mul']
     selected_mul = [item for item in selected_mul if item in all_equal_length]
     selected_all = selected_uni + selected_mul
@@ -58,14 +65,16 @@ def get_UCR_UEA_sets(dataset_choice: str) -> list:
     elif dataset_choice == 'all':
         datasets = all_equal_length
     elif dataset_choice == 'selected_uni':
-        datasets = selected_uni
+        datasets = selected_uni_ordered
     elif dataset_choice == 'selected_mul':
-        datasets = selected_mul
+        datasets = selected_mul_ordered
     elif dataset_choice == 'selected_all':
         datasets = selected_all
     elif dataset_choice == 'multiclass_uni':
         datasets =['ElectricDevices', 'ECG5000', 'NonInvasiveFetalECGThorax1', 'ShapesAll', 'UWaveGestureLibraryAll', 'CBF',
          'TwoPatterns', 'Beef']
+    elif (dataset_choice in selected_uni) or (dataset_choice in selected_mul):
+        datasets= [dataset_choice]
     else:
         raise 'wrong set of datasets'
 
@@ -156,27 +165,29 @@ def get_CFs(CF_path):
 
 def get_valid_CF_given_path(path):
     valid,tx,ty,pred,cf,cf_pred = get_CFs(path)
+
     num_instance = len(tx)
     if 'wCF' in path or 'TSEvo' in path:
 
         np.random.seed(42)
         random_selection = np.load(f'{path}/iterator.npy')
-        tx_selected = tx[random_selection]
-        ty_selected = ty[random_selection]
-        pred_selected = pred[random_selection]
+
+        # tx_selected = tx[random_selection]
+        # ty_selected = ty[random_selection]
+        # pred_selected = pred[random_selection]
         num_instance = len(random_selection)
     else:
-        random_selection = None
-        tx_selected = tx
-        ty_selected = ty
-        pred_selected = pred
-    tx_valid = tx_selected[valid]
-    ty_valid = ty_selected[valid]
-    pred_valid = pred_selected[valid]
+        random_selection = range(num_instance)
+
+    tx_valid = tx[valid]
+    ty_valid = ty[valid]
+    pred_valid = pred[valid]
     return valid,tx_valid,ty_valid,pred_valid,cf,cf_pred, random_selection, num_instance
 
 def get_CF_dataset_metric(df, CF_names=None, datasets=None, metrics=None,ordered=None):
     df =df.copy()
+    numeric_columns = df.select_dtypes(include=['number']).columns
+    df[numeric_columns] = df[numeric_columns].round(3)
     if CF_names is None:
         CF_names = df['CF_name'].unique().tolist()
     if datasets is None:
@@ -203,6 +214,11 @@ def get_CF_dataset_metric(df, CF_names=None, datasets=None, metrics=None,ordered
     columns = ['CF_name', 'dataset_name'] + metrics
     df_output = df[columns].copy()
     df_output = df_output[(df_output['CF_name'].isin(CF_names)) & (df_output['dataset_name'].isin(datasets))].copy()
+    CF_order = ['NUN_CF','wCF','NG','COMTE','TSEvo','SETS']
+    df_output['CF_name'] = pd.Categorical(df_output['CF_name'], categories=CF_order, ordered=True)
+    df_output = df_output.sort_values('CF_name').reset_index(drop=True)
+
+
 
     if ordered is not None:
         df_output['dataset_name'] = pd.Categorical(df_output['dataset_name'], categories=ordered, ordered=True)

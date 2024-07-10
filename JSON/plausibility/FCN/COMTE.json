@@ -1,15 +1,60 @@
 {
-    "EigenWorms": "NotEvaluate",
-    "Cricket": "NotEvaluate",
-    "BasicMotions": "NotEvaluate",
-    "StandWalkJump": "NotEvaluate",
+    "EigenWorms": [
+        0.7753029413377602,
+        0.6477520000080963,
+        0.5525459028393248,
+        0.3441302186672571
+    ],
+    "Cricket": [
+        1.4129139072370538,
+        0.4627324396165667,
+        1.916388421667115,
+        0.6103448156894965
+    ],
+    "BasicMotions": [
+        1.928684312598922,
+        1.2845776949168635,
+        2.676842538940862,
+        1.6399789409417653
+    ],
+    "StandWalkJump": [
+        0.4853697167508932,
+        0.14435856009121364,
+        2.1105644688356695,
+        0.38957552085166103
+    ],
     "FaceDetection": "NotEvaluate",
-    "Epilepsy": "NotEvaluate",
-    "NATOPS": "NotEvaluate",
-    "Heartbeat": "NotEvaluate",
+    "Epilepsy": [
+        1.1666082823572248,
+        0.49471808966424524,
+        1.5737585928275721,
+        0.6522839384564613
+    ],
+    "NATOPS": [
+        1.5072353960772875,
+        0.6111375532936006,
+        2.297446249674041,
+        1.375227422042281
+    ],
+    "Heartbeat": [
+        1.1105676299295837,
+        2.152161178895793,
+        1.9541058961462439,
+        4.739887047794743
+    ],
     "AtrialFibrillation": "NotEvaluate",
-    "RacketSports": "NotEvaluate",
-    "SelfRegulationSCP1": "NotEvaluate",
+    "RacketSports": [
+        1.2632028873207015,
+        0.3446983995096082,
+        1.861060846273645,
+        0.6206951276704655
+    ],
+    "SelfRegulationSCP1": [
+        1.6568298617165238,
+        1.4751597328414987,
+        1.988224668619021,
+        1.5711215924760877
+    ],
     "ERing": "NotEvaluate",
     "ECG200": "NotEvaluate",
     "Beef": "NotEvaluate",

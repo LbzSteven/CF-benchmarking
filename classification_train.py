@@ -61,9 +61,10 @@ def train_model_datasets(dataset: str, model_name: str, device=torch.device("cpu
     return acc
 
 
-def train_model_datasets_till_threshold(dataset: str, model_name: str, threshold, device=torch.device("cpu"), UCR_UEA_dataloader=None, repeat=5):
+def train_model_datasets_till_threshold(dataset: str, model_name: str, threshold,model_dataset_path, device=torch.device("cpu"), UCR_UEA_dataloader=None, repeat=5):
     # data preprocessing
-    model_dataset_path = f'../models/{model_name}/{dataset}'
+    if model_dataset_path is None:
+        model_dataset_path = f'../models/{model_name}/{dataset}'
     print(f'training {model_name} on {dataset}')
     if os.path.exists(model_dataset_path):
         print(f'{model_dataset_path} exist')
@@ -155,7 +156,7 @@ def train_UCR_UEA(model_name, dataset_choice, device: str = 'cuda:0', start_per:
             # if dataset == 'EigenWorms':
                 # acc = train_model_datasets(dataset, model_name, device, UCR_UEA_dataloader)
                 # acc = np.random.randint(1)
-                acc = train_model_datasets_till_threshold(dataset, model_name, threshold, device, UCR_UEA_dataloader, repeat=5)
+                acc = train_model_datasets_till_threshold(dataset, model_name, threshold,None, device, UCR_UEA_dataloader, repeat=5)
                 method_record = get_result_JSON(model_name)
                 method_record[dataset] = acc
                 save_result_JSON(method_name=model_name, record_dict=method_record)
@@ -256,19 +257,29 @@ def ensemble_model_datasets(dataset: str, model_name: str, device=torch.device("
 if __name__ == '__main__':
 
     # acc = ensemble_model_datasets(dataset='GunPoint', model_name='MLP', device=torch.device("cuda:0"), UCR_UEA_dataloader=None, num_runs=5)
-    parser = argparse.ArgumentParser(description='Specify models and datasets')
-    parser.add_argument('--model_name', type=str, default='FCN', help='model name')
-    parser.add_argument('--dataset_choice', type=str, default='uni', help='dataset name')
-    parser.add_argument('--CUDA', type=str, default='cuda:0', help='CUDA')
-    parser.add_argument('--start_per', type=float, default=0.0, help='starting percentage of whole datasets')
-    parser.add_argument('--end_per', type=float, default=1.0, help='ending percentage of whole datasets')
-    args = parser.parse_args()
-    train_UCR_UEA(args.model_name, args.dataset_choice, args.CUDA, args.start_per, args.end_per)
+    # parser = argparse.ArgumentParser(description='Specify models and datasets')
+    # parser.add_argument('--model_name', type=str, default='FCN', help='model name')
+    # parser.add_argument('--dataset_choice', type=str, default='uni', help='dataset name')
+    # parser.add_argument('--CUDA', type=str, default='cuda:0', help='CUDA')
+    # parser.add_argument('--start_per', type=float, default=0.0, help='starting percentage of whole datasets')
+    # parser.add_argument('--end_per', type=float, default=1.0, help='ending percentage of whole datasets')
+    # args = parser.parse_args()
+    # train_UCR_UEA(args.model_name, args.dataset_choice, args.CUDA, args.start_per, args.end_per)
     # repeat_on_bad_ones(args.model_name, args.dataset_choice, args.CUDA, args.start_per, args.end_per)
     accs = []
-    datasets = ['Yoga', 'HandOutlines', 'UWaveGestureLibraryAll ', 'ShapesAll']
+    datasets = [ 'Wafer', 'Strawberry'] # 'GunPoint', 'PowerCons',
+    # for dataset in datasets:
+    #     acc = ensemble_model_datasets(dataset=dataset, model_name='InceptionTime', device=torch.device("cuda:7"), UCR_UEA_dataloader=None, num_runs=5)
+    #     accs.append(acc)
+    # for i in range(len(accs)):
+    #     print(f'{datasets[i]} with ensemble acc is {accs[i]:.3f}')
+    model_name='FCN'
+    pbar = trange(len(datasets), desc='Dataset', unit='Dataset', initial=0, disable=False)
     for dataset in datasets:
-        acc = ensemble_model_datasets(dataset=dataset, model_name='InceptionTime', device=torch.device("cuda:7"), UCR_UEA_dataloader=None, num_runs=5)
-        accs.append(acc)
-    for i in range(len(accs)):
-        print(f'{datasets[i]} with ensemble acc is {accs[i]:.3f}')
+        reference_UCR = get_reference_UCR()
+        reference_method: dict = reference_UCR[model_name]
+        threshold = reference_method[dataset]
+        model_dataset_path = f'../models/{model_name}_different_weight/{dataset}'
+        best_acc = train_model_datasets_till_threshold(dataset, model_name, threshold,model_dataset_path,device='cuda:7', UCR_UEA_dataloader = None, repeat = 5)
+        print(threshold,best_acc)
+        pbar.update(1)

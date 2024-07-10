@@ -1,15 +1,50 @@
 {
-    "EigenWorms": "NotEvaluate",
-    "Cricket": "NotEvaluate",
-    "BasicMotions": "NotEvaluate",
-    "StandWalkJump": "NotEvaluate",
+    "EigenWorms": [
+        1.9005136433932541,
+        1.5049093872153456,
+        0.7099237660076252,
+        0.5532615124684197
+    ],
+    "Cricket": [
+        1.5852985119046068,
+        0.8010838122590502,
+        2.4203936770705656,
+        1.139493597486984
+    ],
+    "BasicMotions": [
+        1.7291711391159068,
+        1.088821045599428,
+        4.10626711611925,
+        1.6252892353055888
+    ],
+    "StandWalkJump": [
+        1.5442803796797562,
+        1.3771544822758501,
+        3.4353272545380227,
+        2.455191281747044
+    ],
     "FaceDetection": "NotEvaluate",
-    "Epilepsy": "NotEvaluate",
+    "Epilepsy": [
+        1.4013016560042837,
+        0.46067097324123385,
+        2.2668602614319577,
+        0.4540843028694545
+    ],
     "NATOPS": "NotEvaluate",
     "Heartbeat": "NotEvaluate",
     "AtrialFibrillation": "NotEvaluate",
-    "RacketSports": "NotEvaluate",
-    "SelfRegulationSCP1": "NotEvaluate",
+    "RacketSports": [
+        1.3371237138822145,
+        0.2886254080619062,
+        2.0428290152059057,
+        0.5508465684503039
+    ],
+    "SelfRegulationSCP1": [
+        0.7235308367457458,
+        0.19342271303872424,
+        1.1025944541545334,
+        0.2516749276549643
+    ],
     "ERing": "NotEvaluate",
     "ECG200": [
         3.0145455902873755,

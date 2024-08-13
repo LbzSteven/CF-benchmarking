@@ -44,18 +44,18 @@ def get_UCR_UEA_sets(dataset_choice: str) -> list:
     all_equal_length: list = univariate_equal_length + multivariate_equal_length
     all_equal_length = [item for item in all_equal_length if item not in failed_loading]
 
-    selected_uni = UCR_UEA['selected_uni']
-    selected_uni = [item for item in selected_uni if item in all_equal_length]
+    # selected_uni = UCR_UEA['selected_uni']
+    # selected_uni = [item for item in selected_uni if item in all_equal_length]
     selected_uni_ordered = ['Computers', 'ElectricDevices', 'ECG200', 'ECG5000', 'NonInvasiveFetalECGThorax1',
                             'DistalPhalanxOutlineCorrect', 'HandOutlines', 'ShapesAll', 'Yoga', 'GunPoint',
                             'UWaveGestureLibraryAll', 'PowerCons', 'Earthquakes', 'FordA', 'Wafer', 'CBF',
                             'TwoPatterns', 'Beef', 'Strawberry', 'Chinatown']
     selected_mul_ordered = ['Heartbeat', 'StandWalkJump', 'SelfRegulationSCP1', 'Cricket',
-                             'BasicMotions', 'Epilepsy', 'NATOPS', 'RacketSports', 'EigenWorms','Libras','UWaveGestureLibrary'
-                            'Phoneme']
-    selected_mul = UCR_UEA['selected_mul']
-    selected_mul = [item for item in selected_mul if item in all_equal_length]
-    selected_all = selected_uni + selected_mul
+                             'BasicMotions', 'Epilepsy', 'NATOPS', 'RacketSports', 'EigenWorms','Libras',
+                            'UWaveGestureLibrary','PenDigits', 'ArticularyWordRecognition']
+    # selected_mul = UCR_UEA['selected_mul']
+    # selected_mul = [item for item in selected_mul if item in all_equal_length]
+    # selected_all = selected_uni + selected_mul
     if dataset_choice == 'uni':
         univariate_equal_length = [item for item in univariate_equal_length if item not in failed_loading]
         datasets = univariate_equal_length
@@ -69,11 +69,11 @@ def get_UCR_UEA_sets(dataset_choice: str) -> list:
     elif dataset_choice == 'selected_mul':
         datasets = selected_mul_ordered
     elif dataset_choice == 'selected_all':
-        datasets = selected_all
+        datasets = selected_uni_ordered + selected_mul_ordered
     elif dataset_choice == 'multiclass_uni':
         datasets =['ElectricDevices', 'ECG5000', 'NonInvasiveFetalECGThorax1', 'ShapesAll', 'UWaveGestureLibraryAll', 'CBF',
          'TwoPatterns', 'Beef']
-    elif (dataset_choice in selected_uni) or (dataset_choice in selected_mul):
+    elif (dataset_choice in selected_uni_ordered) or (dataset_choice in selected_mul_ordered):
         datasets= [dataset_choice]
     else:
         raise 'wrong set of datasets'
@@ -106,11 +106,22 @@ def save_result_JSON(method_name, record_dict):
 def get_instance_result_JSON(CF_path):
     full_path_result = os.path.join(CF_path,"results.json")
     full_path_plau = os.path.join(CF_path,"plausibility.json")
+    sparsity_dict={
+        'threL0':np.load(os.path.join(CF_path,'L0thre0025_0.0025.npy')),
+        'sens':np.load(os.path.join(CF_path,'sensitivity0025_0.0025.npy')),
+        'numseg':np.load(os.path.join(CF_path,'num_segments_modi0025_0.0025.npy')),
+        # 'numseg_thresh': np.load(os.path.join(CF_path, 'num_segments_0.0025_no_tol.npy')),
+        # 'numseg_vanilla': np.load(os.path.join(CF_path, 'num_segments.npy'))
+    }
+
+
     with open(full_path_result, 'r') as file:
             result_dict:dict = json.load(file)
     with open(full_path_plau, 'r') as file:
             plau_dict:dict = json.load(file)
-    return result_dict, plau_dict
+
+
+    return result_dict, plau_dict, sparsity_dict
 
 def sample_indices_by_label(labels, selected_size=250):
     """
@@ -187,7 +198,7 @@ def get_valid_CF_given_path(path):
 def get_CF_dataset_metric(df, CF_names=None, datasets=None, metrics=None,ordered=None):
     df =df.copy()
     numeric_columns = df.select_dtypes(include=['number']).columns
-    df[numeric_columns] = df[numeric_columns].round(3)
+    df[numeric_columns] = df[numeric_columns].round(2)
     if CF_names is None:
         CF_names = df['CF_name'].unique().tolist()
     if datasets is None:
@@ -211,14 +222,12 @@ def get_CF_dataset_metric(df, CF_names=None, datasets=None, metrics=None,ordered
         if metric+'_std' in df.columns:
             df[metric] = df.apply(lambda row: f"{row[metric]}({row[metric+'_std']})", axis=1)
     # print(metrics)
-    columns = ['CF_name', 'dataset_name'] + metrics
+    columns = ['dataset_name','CF_name'] + metrics
     df_output = df[columns].copy()
     df_output = df_output[(df_output['CF_name'].isin(CF_names)) & (df_output['dataset_name'].isin(datasets))].copy()
     CF_order = ['NUN_CF','wCF','NG','COMTE','TSEvo','SETS']
     df_output['CF_name'] = pd.Categorical(df_output['CF_name'], categories=CF_order, ordered=True)
     df_output = df_output.sort_values('CF_name').reset_index(drop=True)
-
-
 
     if ordered is not None:
         df_output['dataset_name'] = pd.Categorical(df_output['dataset_name'], categories=ordered, ordered=True)

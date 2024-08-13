@@ -76,5 +76,35 @@
     "DistalPhalanxOutlineCorrect": "NotEvaluate",
     "Computers": "NotEvaluate",
     "ShapesAll": "NotEvaluate",
-    "Strawberry": "NotEvaluate"
+    "Strawberry": "NotEvaluate",
+    "Libras": [
+        0.7013275334154839,
+        0.2610751783892846,
+        1.7004612443652163,
+        0.728744917855568
+    ],
+    "Phoneme": [
+        NaN,
+        NaN,
+        1.530334070316659,
+        0.9370721787550362
+    ],
+    "UWaveGestureLibrary": [
+        1.0107999097072073,
+        0.292558863719989,
+        1.6062105439165113,
+        0.45394445659532134
+    ],
+    "ArticularyWordRecognition": [
+        1.112666176530915,
+        0.22142844766979256,
+        1.6870932790141084,
+        0.3527105852088792
+    ],
+    "PenDigits": [
+        1.7042849752174294,
+        0.6341577493541641,
+        2.471197220983201,
+        1.1103016177505742
+    ]
 }

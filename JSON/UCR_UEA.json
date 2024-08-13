@@ -542,17 +542,14 @@
         "Cricket",
         "BasicMotions",
         "StandWalkJump",
-        "FaceDetection",
         "Epilepsy",
         "NATOPS",
         "Heartbeat",
-        "AtrialFibrillation",
         "RacketSports",
         "SelfRegulationSCP1",
-        "ERing",
         "Libras",
         "PenDigits",
         "UWaveGestureLibrary",
-        "Phoneme"
+        "ArticularyWordRecognition"
     ]
 }

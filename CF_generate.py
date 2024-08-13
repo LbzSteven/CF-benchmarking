@@ -152,14 +152,15 @@ def CF_generate(dataset, model_name, CF_method='NG', AE_name='FCN_AE', vis_flag=
             list_valid.append(i)
             # IM1.append(IM1_i)
             # AE_loss.append(AE_loss_i)
-            if i <= 49 and vis_flag:
-                marker = i
-                visualize_TSinterpret(orig, pred_label, CF, pred_CF, CF_path, marker)
+            # if i <= 49 and vis_flag:
+            #     marker = i
+            #     visualize_TSinterpret(orig, pred_label, CF, pred_CF, CF_path, marker)
             num_valid = num_valid + 1
         elif CF=='To':
             timeout_counter += 1
         else:
             timeout_counter = 0
+            print(i,pred_label)
         if timeout_counter == 10:
             return 'Time out 10 consecutive time'
         pbar.update(1)
@@ -239,7 +240,8 @@ def generate_CF(CF_name, model_name, dataset_choice, device: str = 'cuda:0', sta
             # get reference acc of this method on this dataset
             print(f'Generating CF with {CF_name} on {dataset} with model {model_name}')
             results = method_record[dataset]
-            if ('NotEvaluate' in results) or CF_name =='TSEvo' or CF_name =='wCF':
+            if True:
+            # if ('NotEvaluate' in results) or CF_name =='TSEvo' or CF_name =='wCF':
             # if CF_name =='TSEvo' or CF_name =='wCF':
                 # if dataset != 'CBF':
                 #     continue

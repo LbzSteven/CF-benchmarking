@@ -17,7 +17,6 @@
 #python CF_generate.py  --CF_name wCF --model_name InceptionTime --dataset_choice selected_uni --CUDA cuda:5 --start_per 0.3 --end_per 0.4 &
 #python CF_generate.py  --CF_name wCF --model_name InceptionTime --dataset_choice selected_uni --CUDA cuda:6 --start_per 0.4 --end_per 0.5 &
 #python CF_generate.py  --CF_name wCF --model_name InceptionTime --dataset_choice selected_uni --CUDA cuda:5 --start_per 0.5 --end_per 0.6 &
-#python CF_generate.py  --CF_name wCF --model_name MLP --dataset_choice HandOutlines --CUDA cuda:6 --start_per 0.0 --end_per 1.0 &
 #python CF_generate.py  --CF_name wCF --model_name InceptionTime --dataset_choice selected_uni --CUDA cuda:1 --start_per 0.6 --end_per 0.7 &
 #python CF_generate.py  --CF_name wCF --model_name InceptionTime --dataset_choice selected_uni --CUDA cuda:3 --start_per 0.7 --end_per 0.8 &
 #python CF_generate.py  --CF_name wCF --model_name InceptionTime --dataset_choice selected_uni --CUDA cuda:6 --start_per 0.8 --end_per 0.9 &
@@ -50,7 +49,9 @@
 
 
 method="wCF"
-#model="InceptionTime"
+model="FCN"
+
+
 #python CF_generate.py  --CF_name "$method" --model_name "$model" --dataset_choice Heartbeat --CUDA cuda:5 --start_per 0.0 --end_per 1.0 &
 #python CF_generate.py  --CF_name "$method" --model_name "$model" --dataset_choice StandWalkJump --CUDA cuda:5 --start_per 0.0 --end_per 1.0 &
 #python CF_generate.py  --CF_name "$method" --model_name "$model" --dataset_choice SelfRegulationSCP1 --CUDA cuda:5 --start_per 0.0 --end_per 1.0 &
@@ -60,7 +61,11 @@ method="wCF"
 #python CF_generate.py  --CF_name "$method" --model_name "$model" --dataset_choice NATOPS --CUDA cuda:7 --start_per 0.0 --end_per 1.0 &
 #python CF_generate.py  --CF_name "$method" --model_name "$model" --dataset_choice RacketSports --CUDA cuda:7 --start_per 0.0 --end_per 1.0 &
 #python CF_generate.py  --CF_name "$method" --model_name "$model" --dataset_choice EigenWorms --CUDA cuda:7 --start_per 0.0 --end_per 1.0 &
-python CF_generate.py  --CF_name "$method" --model_name InceptionTime --dataset_choice EigenWorms --CUDA cuda:6 --start_per 0.0 --end_per 1.0 &
-python CF_generate.py  --CF_name "$method" --model_name MLP --dataset_choice EigenWorms --CUDA cuda:6 --start_per 0.0 --end_per 1.0 &
+#python CF_generate.py  --CF_name "$method" --model_name "$model" --dataset_choice Libras --CUDA cuda:3 --start_per 0.0 --end_per 1.0 &
+#python CF_generate.py  --CF_name "$method" --model_name "$model" --dataset_choice UWaveGestureLibrary --CUDA cuda:3 --start_per 0.0 --end_per 1.0 &
+#python CF_generate.py  --CF_name "$method" --model_name "$model" --dataset_choice PenDigits --CUDA cuda:3 --start_per 0.0 --end_per 1.0 &
+#python CF_generate.py  --CF_name "$method" --model_name "$model" --dataset_choice ArticularyWordRecognition --CUDA cuda:3 --start_per 0.0 --end_per 1.0 &
+
+
 wait
 echo "Finish"

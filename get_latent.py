@@ -11,6 +11,10 @@ from utils.model_util import model_init
 from utils.train_util import generate_loader, get_all_preds
 from quantative.metric import get_hidden_layers, get_distance_latent,compute_plausibility_dataset
 
+# values_to_exclude = [ 'StandWalkJump', 'SelfRegulationSCP1', 'Cricket',
+#                              'BasicMotions', 'Epilepsy', 'RacketSports', 'EigenWorms','Libras'
+#                      'UWaveGestureLibrary', 'Phoneme']
+values_to_exclude = ['EigenWorms','NATOPS', 'Heartbeat']
 
 def get_latent_model(dataset, model_name, device='cuda:0',save=True):
     model_dataset_path = f'../models/{model_name}/{dataset}'
@@ -36,7 +40,6 @@ def get_latent_model(dataset, model_name, device='cuda:0',save=True):
     print(train_latent.shape)
     print(test_latent.shape)
     if save:
-
         np.save(f'{model_dataset_path}/train_latent.npy', train_latent)
         np.save(f'{model_dataset_path}/test_latent.npy', test_latent)
         np.save(f'{model_dataset_path}/train_preds.npy',train_preds)
@@ -91,7 +94,16 @@ def generate_CFs_latent(CF_name, model_name, dataset_choice, device: str = 'cuda
             results = CF_record[dataset]
             if results[-1] == 0.0:
                 continue
-            if not 'Time out 10 consecutive time' in str(results):
+            elif dataset in values_to_exclude:
+                # print(f'Ignore {dataset} first')
+                continue
+            elif 'NotEvaluate' in str(results):
+                print(f'{CF_name},{model_name}, {dataset} Not evaluated')
+                continue
+            elif 'Time out 10 consecutive time' in str(results):
+                print(f'dataset {dataset} timeout Time out 10 consecutive time didnt have valid CF')
+                continue
+            else:
                 get_latent_CF(dataset, model_name, CF_method=CF_name, device=device, save=save)
 
             pbar.update(1)
@@ -134,25 +146,33 @@ def compute_plausibility_CFs(model_name,CF_name, dataset_choice,num_neighbor=5,s
     CF_results = 'CF/' + model_name + '/' + CF_name
     plau_record = get_result_JSON(CF_plausibility)
     CF_record = get_result_JSON(CF_results)
+
     for model_name in models:
         pbar = trange(end - start, desc='Dataset', unit='epoch', initial=0, disable=False)
         for i in range(start, end):
+
+            pbar.update(1)
             dataset = datasets[i]
             results = CF_record[dataset]
             if results[-1] == 0.0:
                 continue
-
-            if not 'Time out 10 consecutive time' in str(results):
+            elif dataset in values_to_exclude:
+                # print(f'Ignore {dataset} first')
+                continue
+            elif 'NotEvaluate' in str(results):
+                print(f'{CF_name},{model_name}, {dataset} Not evaluated')
+                continue
+            elif 'Time out 10 consecutive time' in str(results):
+                print(f'dataset {dataset} timeout Time out 10 consecutive time didnt have valid CF')
+                continue
+            else:
                 all_dist_neighbor, classwise_dist_neighbor = compute_plausibility_dataset(dataset=dataset,model_name=model_name,CF_method=CF_name,num_neighbor=num_neighbor)
                 results = [np.mean(all_dist_neighbor), np.std(all_dist_neighbor), np.mean(classwise_dist_neighbor), np.std(classwise_dist_neighbor)]
                 plau_record[dataset] = results
-            else:
-                print(f'dataset timeout Time out 10 consecutive time didnt have valid CF')
             if save:
                 save_result_JSON(method_name=CF_plausibility, record_dict=plau_record)
 
-            pbar.set_postfix(loss=f'{results}')
-            pbar.update(1)
+
 
     return plau_record
 
@@ -167,18 +187,18 @@ if __name__ == '__main__':
     # print(d2)
     torch.cuda.empty_cache()
     dataset_choice = 'selected_mul'
-    model_names = ['FCN']#['InceptionTime', 'MLP','FCN']
-    CF_names = ['NUN_CF','COMTE','wCF','TSEvo','SETS'] #['NUN_CF','NG','wCF','TSEvo','SETS']
+    model_names = ['MLP','FCN','InceptionTime']
+    CF_names = ['NUN_CF','COMTE','TSEvo','SETS'] #['NUN_CF','NG','wCF','TSEvo','SETS']
 
     # dataset_choice = 'selected_uni'
-    # for model_name in ['InceptionTime', 'MLP','FCN','ResNet']:
-    #     generate_models_latent(model_name, dataset_choice,device='cuda:0', start_per= 0.0, end_per = 1.0, save = True)
+    for model_name in ['InceptionTime', 'MLP','FCN']:
+        generate_models_latent(model_name, dataset_choice='PenDigits',device='cuda:2', start_per= 0.0, end_per = 1.0, save = True)
     #
     for model_name in model_names: # 'InceptionTime'
         for CF_name in CF_names:
             if model_name == 'MLP' and CF_name=='NG':
                 continue
-            generate_CFs_latent(CF_name,model_name, dataset_choice,device='cuda:6', start_per= 0.0, end_per = 1.0, save = True)
+            generate_CFs_latent(CF_name,model_name, dataset_choice,device='cuda:2', start_per= 0.0, end_per = 1.0, save = True)
     #
     # dataset_choice = 'selected_uni'
     for model_name in model_names:

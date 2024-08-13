@@ -1,15 +1,55 @@
 {
     "EigenWorms": "NotEvaluate",
-    "Cricket": "NotEvaluate",
-    "BasicMotions": "NotEvaluate",
-    "StandWalkJump": "NotEvaluate",
+    "Cricket": [
+        1.7786925787109271,
+        0.6054045023620173,
+        2.304763889363584,
+        0.7739054640097943
+    ],
+    "BasicMotions": [
+        1.7527408759570036,
+        1.108940546513946,
+        3.194959236255042,
+        1.682550378617418
+    ],
+    "StandWalkJump": [
+        1.0359020923516797,
+        0.13020001161573427,
+        1.6133637310185711,
+        0.1856946676896577
+    ],
     "FaceDetection": "NotEvaluate",
-    "Epilepsy": "NotEvaluate",
-    "NATOPS": "NotEvaluate",
-    "Heartbeat": "NotEvaluate",
+    "Epilepsy": [
+        1.5384356000185448,
+        0.9936509030673801,
+        2.050510238603949,
+        0.946001189553913
+    ],
+    "NATOPS": [
+        2.102023254264594,
+        1.0276732807724136,
+        2.370546703433306,
+        1.0323174052112487
+    ],
+    "Heartbeat": [
+        1.4341781317455287,
+        3.862012421629372,
+        1.8950992044688606,
+        5.615491968418269
+    ],
     "AtrialFibrillation": "NotEvaluate",
-    "RacketSports": "NotEvaluate",
-    "SelfRegulationSCP1": "NotEvaluate",
+    "RacketSports": [
+        1.3500417547470185,
+        0.30632967119351434,
+        1.7456745742239788,
+        0.355943612896533
+    ],
+    "SelfRegulationSCP1": [
+        2.6385563557912897,
+        5.699668470967633,
+        5.5117102321996825,
+        13.980695527816055
+    ],
     "ERing": "NotEvaluate",
     "ECG200": "NotEvaluate",
     "Beef": "NotEvaluate",
@@ -31,5 +71,35 @@
     "DistalPhalanxOutlineCorrect": "NotEvaluate",
     "Computers": "NotEvaluate",
     "ShapesAll": "NotEvaluate",
-    "Strawberry": "NotEvaluate"
+    "Strawberry": "NotEvaluate",
+    "Libras": [
+        0.8108311865101316,
+        0.2865863216874267,
+        1.5287920575570613,
+        0.7426856848142038
+    ],
+    "Phoneme": [
+        NaN,
+        NaN,
+        0.897642183125139,
+        0.30763105483965386
+    ],
+    "UWaveGestureLibrary": [
+        1.2623042106828177,
+        0.3966988985678553,
+        1.7733554275896126,
+        0.4996104691024848
+    ],
+    "ArticularyWordRecognition": [
+        1.7852365319644,
+        0.46568067611908365,
+        2.4433233613962155,
+        0.5895222243225066
+    ],
+    "PenDigits": [
+        1.0484746668166316,
+        0.8617908846383561,
+        1.5521539301927025,
+        1.5540314877041517
+    ]
 }

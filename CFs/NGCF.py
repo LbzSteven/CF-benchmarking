@@ -140,11 +140,14 @@ class NGCF(CF):
             query, predicted_label,target, distance, n_neighbors
         )
         if nun is None:
+
             return None, None
         individual = np.array(nun.tolist())  # , dtype=np.float64)
         out = self.predict(individual)
         if np.argmax(out) == predicted_label:
-            print(out, predicted_label)
+            print(out, predicted_label,target)
+            orig_pred = self.predict(query)
+            print(orig_pred,np.argsort(orig_pred)[0][-2:-1][0],np.argsort(orig_pred),np.argmax(orig_pred))
             print("No Counterfactual found. Most likely caused by a constant predictor.")
             return None, None
         if np.argmax(out) != target:

@@ -358,10 +358,10 @@ def draw_cd_diagram(df_perf=None, alpha=0.05, method_col='classifier_name', metr
         return None
     else:
         p_values, average_ranks, _ = results
-    # print(average_ranks)
 
-    # for p in p_values:
-    #     print(p)
+    print(average_ranks)
+    for p in p_values:
+        print(p)
 
     graph_ranks(average_ranks.values, average_ranks.keys(), p_values,
                 cd=None, reverse=True, width=9, textspace=1.5, labels=labels)
